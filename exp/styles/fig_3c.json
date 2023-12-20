@@ -1,0 +1,13 @@
+{
+    "y_label": "Throughput (Mops/s)",
+    "x_label": "Cache Size (MB)",
+
+    "y_tick": [0, 15, 30, 45],
+    "y_lim": [0, 55],
+    "x_tick": [0, 200, 400, 600],
+    "x_lim" : [0, 635],
+
+    "legend_anchor": [0.62, 0.625],
+    "figsize": [3.5, 2.5],
+    "legend_size": 14
+}

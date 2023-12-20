@@ -1,0 +1,20 @@
+{
+    "y_label": "Throughput (Mops/s)",
+    "x_label": "Number of Clients",
+
+    "ylim": [0, 60],
+    "y_major_num": 6,
+    "y_lim": [0, 60],
+    "xlim" : [0, 900],
+    "x_major_num": 4,
+    "x_lim" : [0, 900],
+    "grid_minor": true,
+
+    "legend_location": "upper left",
+    "grid_type": {"axis": "both", "lw": 0.5, "linestyle": "--"},
+    "figsize": [2.8, 2.5],
+    "font_size": 14,
+    "legend_size": 12,
+    "tick_size": 13,
+    "clip_on": false
+}

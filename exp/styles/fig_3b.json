@@ -1,0 +1,12 @@
+{
+    "y_label": "Throughput (Mops/s)",
+    "x_label": "Key Type",
+
+    "y_tick": [0, 1, 2, 3, 4],
+    "y_lim": [0, 5],
+    "bar_offset": 2,
+    "legend_location": "best",
+
+    "figsize": [3.5, 2.5],
+    "legend_size": 12
+}

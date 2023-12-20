@@ -1,0 +1,13 @@
+{
+    "y_label": "Throughput (Mops/s)",
+    "x_label": "Number of Clients",
+
+    "y_tick": [0.0, 1.0, 2.0, 3.0],
+    "y_lim": [0, 3.8],
+    "x_lim" : [0, 256],
+
+    "legend_location": "upper left",
+    "figsize": [3.5, 2.5],
+    "legend_size": 14,
+    "clip_on": false
+}

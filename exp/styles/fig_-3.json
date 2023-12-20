@@ -1,0 +1,14 @@
+{
+    "y_label": "Consumed Cache Size (MB)",
+    "x_label": "Read Ampl. Factor",
+
+    "y_lim" : [1, 10000],
+    "yscale": "log",
+    "x_tick": [1, 8, 16, 32, 64, 128],
+
+    "legend_location": "best",
+    "figsize": [3.5, 2.5],
+    "legend_size": 12,
+    "tick_size": 10,
+    "font_size": 12
+}

@@ -1,0 +1,11 @@
+{
+    "methods": ["Sherman", "Sherman w/o Leaf Ampl", "Sherman w/o All Ampl", "SMART"],
+    "workload_names": ["YCSB C", "c"],
+    "target_epoch": 9,
+    "client_num": [3, 32],
+    "MN_num": 1,
+    "key_size": "email",
+    "value_size": 64,
+    "cache_size": [0, 100, 200, 300, 400, 500, 600, 700, 800],
+    "span_size": 32
+}

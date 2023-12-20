@@ -1,0 +1,23 @@
+{
+    "y_label": "Throughput (Mops/s)",
+    "x_label": "Zipfian coefficient",
+
+    "ylim": [0, 80],
+    "y_major_num": 5,
+    "y_lim": [0, 80],
+    "xlim" : [0.5, 1],
+    "x_major_num": 6,
+    "x_tick": [0.5, 0.6, 0.7, 0.8, 0.9, 0.99],
+    "x_ticklabel": ["0.5", "0.6", "0.7", "0.8", "0.9", "0.99"],
+    "x_lim" : [0.5, 0.99],
+    "grid_minor": true,
+
+    "legend_location": "upper right",
+    "grid_type": {"axis": "both", "lw": 0.5, "linestyle": "--"},
+    "hide_half_edge": true,
+    "figsize": [2.2, 2.5],
+    "font_size": 12,
+    "legend_size": 12,
+    "tick_size": 11,
+    "clip_on": false
+}

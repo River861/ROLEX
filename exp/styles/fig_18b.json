@@ -1,0 +1,21 @@
+{
+    "y_label": "Throughput (Mops/s)",
+    "x_label": "Key Size (Byte)",
+
+    "ylim": [0, 120],
+    "y_major_num": 5,
+    "y_lim": [0, 120],
+    "xlim" : [0, 300],
+    "x_major_num": 6,
+    "x_lim" : [0, 264],
+    "grid_minor": true,
+
+    "legend_location": "upper right",
+    "grid_type": {"axis": "both", "lw": 0.5, "linestyle": "--"},
+    "hide_half_edge": true,
+    "figsize": [2.2, 2.5],
+    "font_size": 12,
+    "legend_size": 12,
+    "tick_size": 11,
+    "clip_on": false
+}
