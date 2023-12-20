@@ -46,11 +46,11 @@ Rolex::Rolex(DSM *dsm, const std::vector<Key> &load_keys, uint16_t rolex_id) : d
   clear_debug_info();
 
   // processing data
-  std::sort(exist_keys.begin(), exist_keys.end());
-  exist_keys.erase(std::unique(exist_keys.begin(), exist_keys.end()), exist_keys.end());
-  std::sort(exist_keys.begin(), exist_keys.end());
-  for(int i = 1; i < exist_keys.size(); ++ i){
-    assert(exist_keys[i] >= exist_keys[i - 1]);
+  std::sort(load_keys.begin(), load_keys.end());
+  load_keys.erase(std::unique(load_keys.begin(), load_keys.end()), load_keys.end());
+  std::sort(load_keys.begin(), load_keys.end());
+  for(int i = 1; i < load_keys.size(); ++ i){
+    assert(load_keys[i] >= load_keys[i - 1]);
   }
 
   // initial local models
