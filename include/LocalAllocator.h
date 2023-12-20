@@ -26,9 +26,6 @@ public:
     if (align_bit) {
       cur.offset = ROUND_UP(cur.offset, align_bit);
     }
-#ifdef PADDED_NODE_ALLOCATION
-      cur.offset += (1ULL << align_bit);
-#endif
     res = cur;
     if (head == GlobalAddress::Null() || (cur.offset + size > head.offset + define::kChunkSize)) {
       need_chunck = true;

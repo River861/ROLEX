@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
-project(HopB-Tree)
+project(ROLEX_dev)
 
 #Compiler options
 # set(CMAKE_C_FLAGS "-Wall -Wno-deprecated-declarations -Wsign-compare -g")   # -DNDEBUG
@@ -63,8 +63,8 @@ set(COMMON_SRC ${PROJECT_SOURCE_DIR}/src)
 
 #Used by both server and clients
 file(GLOB_RECURSE COMMON_FILE ${COMMON_SRC}/*.cpp)
-add_library(HopB-Tree STATIC ${COMMON_FILE})
-link_libraries(HopB-Tree)
+add_library(ROLEX_dev STATIC ${COMMON_FILE})
+link_libraries(ROLEX_dev)
 
 #Test codes
 file(GLOB TEST_SRC ${PROJECT_SOURCE_DIR}/test/*.cpp)

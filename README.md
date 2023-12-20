@@ -1,15 +1,13 @@
-# HopB-Tree
+# ROLEX_dev
 
 ## Environment Setup
 
-You have to install the necessary dependencies in order to build HopB-Tree.
-Note that you should run the following steps on **all** nodes you have created.
 
-1) Set bash as the default shell. And enter the HopB-Tree directory.
+1) Set bash as the default shell. And enter the ROLEX_dev directory.
     ```shell
     sudo su
     chsh -s /bin/bash
-    cd HopB-Tree
+    cd ROLEX_dev
     ```
 
 2) Install Mellanox OFED.
@@ -34,7 +32,7 @@ Note that you should run the following steps on **all** nodes you have created.
 
 4) Enter the directory. Install libraries and tools.
     ```shell
-    cd HopB-Tree
+    cd ROLEX_dev
     # This takes about 3 minutes
     sh ./script/installLibs.sh
     ```
@@ -47,7 +45,7 @@ You should run the following steps on **all** nodes.
 1) Download YCSB source code.
     ```shell
     sudo su
-    cd HopB-Tree/ycsb
+    cd ROLEX_dev/ycsb
     curl -O --location https://github.com/brianfrankcooper/YCSB/releases/download/0.11.0/ycsb-0.11.0.tar.gz
     tar xfvz ycsb-0.11.0.tar.gz
     mv ycsb-0.11.0 YCSB
@@ -73,7 +71,7 @@ You should run the following steps on **all** nodes.
     ulimit -l unlimited
     ```
 
-* Return to the root directory and execute the following commands on **all** nodes to compile HopB-Tree:
+* Return to the root directory and execute the following commands on **all** nodes to compile ROLEX_dev:
     ```shell
     mkdir build; cd build; cmake ..; make -j
     ```
@@ -109,7 +107,7 @@ You should run the following steps on **all** nodes.
     ```
 
 * Results:
-    * Throughput: the throughput of **HopB-Tree** among all the cluster will be shown in the terminal of the first node (with 10 epoches by default).
+    * Throughput: the throughput of **ROLEX_dev** among all the cluster will be shown in the terminal of the first node (with 10 epoches by default).
     * Latency: execute the following command in **one** node to calculate the latency results of the whole cluster:
         ```shell
         python3 ../us_lat/cluster_latency.py <CN_num> <epoch_start> <epoch_num>

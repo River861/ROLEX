@@ -21,24 +21,9 @@
 #define TREE_ENABLE_CACHE
 #define CACHE_MORE_INTERNAL_NODE
 // #define NEED_CACHE_EVICTION
-// DEBUG-TREE
-#define HOPSCOTCH_LEAF_NODE
-#define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
-#define SIBLING_BASED_VALIDATION       // !!NOTE: should be turned on together with SCATTERED_LEAF_METADATA
-#define SPECULATIVE_READ
-// DEBUG-SCAN (can boost small-length scan)
-#define FINE_GRAINED_SCAN
-#define BANDWIDTH_GREEDY_SCAN
 
 #define TREE_ENABLE_READ_DELEGATION
 #define TREE_ENABLE_WRITE_COMBINING
-
-// Designs with little effect
-#define PADDED_NODE_ALLOCATION
-#define UNORDERED_INTERNAL_NODE
-#define SPLIT_WRITE_UNLATCH
-#define BANDWIDTH_GREEDY_WRITE
-#define PADDED_LOCK_OFFSET
 
 // Environment Config
 #define MAX_MACHINE 20
@@ -148,17 +133,9 @@ constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
 // Leaf Node
 constexpr uint32_t leafSpanSize     = 128;
-#ifdef SIBLING_BASED_VALIDATION
-constexpr uint32_t scatterMetadataSize = versionSize + sizeof(uint8_t) + sizeof(uint64_t);
-#else
 constexpr uint32_t scatterMetadataSize = versionSize + sizeof(uint8_t) + sizeof(uint64_t) + keyLen * 2;
-#endif
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint8_t) * 2 + sizeof(uint64_t) + keyLen * 2;
-#ifdef HOPSCOTCH_LEAF_NODE
-constexpr uint32_t leafEntrySize = versionSize + sizeof(uint8_t) + keyLen + simulatedValLen;
-#else
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
-#endif
 
 // Internal Node
 constexpr uint32_t internalSpanSize = 64;
@@ -171,19 +148,11 @@ constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hop
 constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 
 // Rdma Read/Write Size
-#ifdef SCATTERED_LEAF_METADATA
-constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE((scatterMetadataSize + leafEntrySize * hopRange) * entryGroupNum, versionSize);
-#else
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize, versionSize);
-#endif
 constexpr uint32_t transInternalSize = ADD_CACHELINE_VERSION_SIZE(internalMetadataSize + internalEntrySize * internalSpanSize, versionSize);
 
 // Allocation Size
-#ifdef PADDED_LOCK_OFFSET
-constexpr uint32_t lock_pos_num = 3;
-#else
 constexpr uint32_t lock_pos_num = 1;
-#endif
 constexpr uint32_t allocationLeafSize = transLeafSize + lock_pos_num * 8UL;  // remain space for the lock
 constexpr uint32_t allocationInternalSize = transInternalSize + lock_pos_num * 8UL;
 

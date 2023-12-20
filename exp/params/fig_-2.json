@@ -1,9 +1,0 @@
-{
-    "methods": ["KV-grained Lock", "Node-grained Lock"],
-    "zipfian": [0, 0.2, 0.4, 0.6, 0.8, 0.99],
-    "read_ratio": 0,
-    "target_epoch": 9,
-    "client_num": [10, 64],
-    "MN_num": 1,
-    "span_size": 128
-}

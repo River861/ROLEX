@@ -30,9 +30,6 @@ inline bool operator==(const LeafMetadata &lhs, const LeafMetadata &rhs) {
 class LeafEntry {
 public:
   PackedVersion h_version;
-#ifdef HOPSCOTCH_LEAF_NODE
-  uint8_t hop_bitmap : define::hopRange;
-#endif
   // kv
   Key key;
   union {
@@ -41,25 +38,10 @@ public:
   };
 
 public:
-#ifdef HOPSCOTCH_LEAF_NODE
-  LeafEntry() : h_version(), hop_bitmap(0U), key(define::kkeyNull), value(define::kValueNull) {}
-  LeafEntry(const Key& k, const Value& v) : h_version(), hop_bitmap(0U), key(k), value(v) {}
-#else
   LeafEntry() : h_version(), key(define::kkeyNull), value(define::kValueNull) {}
   LeafEntry(const Key& k, const Value& v) : h_version(), key(k), value(v) {}
-#endif
 
   void update(const Key& k, const Value& v) { key = k, value = v; }
-#ifdef HOPSCOTCH_LEAF_NODE
-  void set_hop_bit(int idx) {
-    assert(idx >= 0 && idx < (int)define::hopRange && !(hop_bitmap & (1U << (define::hopRange - idx - 1))));
-    hop_bitmap |= 1U << (define::hopRange - idx - 1);
-  }
-  void unset_hop_bit(int idx) {
-    assert(idx >= 0 && idx < (int)define::hopRange && (hop_bitmap & (1U << (define::hopRange - idx - 1))));
-    hop_bitmap &= ~(1U << (define::hopRange - idx - 1));
-  }
-#endif
 
   static LeafEntry Null() {
     static LeafEntry _zero;
@@ -81,11 +63,7 @@ public:
   LeafNode() : metadata(), records{} {}
 
   bool is_root() const {
-#ifdef SIBLING_BASED_VALIDATION
-    return metadata.sibling_ptr == GlobalAddress::Widest();
-#else
     return metadata.fence_keys == FenceKeys::Widest();
-#endif
   }
 
   static const bool IS_LEAF = true;
@@ -99,22 +77,6 @@ inline bool operator==(const LeafNode &lhs, const LeafNode &rhs) {
 }
 
 /* -------------Auxiliary Structures------------- */
-#ifdef SIBLING_BASED_VALIDATION
-class ScatteredMetadata {
-public:
-  PackedVersion h_version;
-  uint8_t valid;
-  GlobalAddress sibling_ptr;
-
-  ScatteredMetadata(const LeafMetadata& metadata): h_version(metadata.h_version), valid(1), sibling_ptr(metadata.sibling_ptr) {}
-} __attribute__((packed));
-
-static_assert(sizeof(ScatteredMetadata) == define::scatterMetadataSize);
-
-inline bool operator==(const ScatteredMetadata &lhs, const ScatteredMetadata &rhs) {
-  return (lhs.sibling_ptr == rhs.sibling_ptr);
-}
-#else
 class ScatteredMetadata {
 public:
   PackedVersion h_version;
@@ -130,7 +92,6 @@ static_assert(sizeof(ScatteredMetadata) == define::scatterMetadataSize);
 inline bool operator==(const ScatteredMetadata &lhs, const ScatteredMetadata &rhs) {
   return (lhs.sibling_ptr == rhs.sibling_ptr) && (lhs.fence_keys == rhs.fence_keys);
 }
-#endif
 
 
 class LeafEntryGroup {

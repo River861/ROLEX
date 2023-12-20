@@ -2,11 +2,9 @@
 #define _TREE_H_
 
 #include "TreeCache.h"
-#include "IdxCache.h"
 #include "DSM.h"
 #include "Common.h"
 #include "LocalLockTable.h"
-#include "MetadataManager.h"
 #include "LeafVersionManager.h"
 #include "VersionManager.h"
 
@@ -110,21 +108,6 @@ private:
   // update
   bool leaf_node_update(const GlobalAddress& node_addr, const GlobalAddress& sibling_addr, const Key &k, Value v, bool from_cache, CoroPull* sink);
 
-  // hopscotch
-#ifdef HOPSCOTCH_LEAF_NODE
-  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink);
-  void hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink);
-  void hopscotch_search(const GlobalAddress& node_addr, int hash_idx, char *raw_leaf_buffer, char *leaf_buffer, CoroPull* sink, int entry_num=define::hopRange, bool for_update=false);
-
-  Key hopscotch_get_split_key(LeafEntry* records, const Key& k);
-  void hopscotch_insert_locally(LeafEntry* records, const Key& k, Value v);
-#endif
-
-  // speculative read
-#ifdef SPECULATIVE_READ
-  bool speculative_read(const GlobalAddress& leaf_addr, std::pair<int, int> range, char *raw_leaf_buffer, char *leaf_buffer, const Key &k, Value &v, int& speculative_idx, CoroPull* sink, bool for_update=false);
-#endif
-
   // lower-level function
   void leaf_entry_read(const GlobalAddress& node_addr, const int idx, char *raw_leaf_buffer, char *leaf_buffer, CoroPull* sink, bool for_update=false);
   template <class NODE, class ENTRY, class VAL>
@@ -142,9 +125,6 @@ private:
 private:
   DSM *dsm;
   TreeCache *tree_cache;
-#ifdef SPECULATIVE_READ
-  IdxCache *idx_cache;
-#endif
   LocalLockTable *local_lock_table;
 
   static thread_local std::vector<CoroPush> workers;
