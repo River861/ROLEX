@@ -1134,6 +1134,8 @@ bool Tree::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret
     }
   }
 
+  int leaf_cnt = 0;
+  auto range_buffer = (dsm->get_rbuf(nullptr)).get_range_buffer();
   // batch read
   for (const auto& leaf_addr : leaf_addrs) {
     RdmaOpRegion r;
