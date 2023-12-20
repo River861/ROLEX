@@ -76,39 +76,4 @@ inline bool operator==(const LeafNode &lhs, const LeafNode &rhs) {
   return !strncmp((char *)&lhs, (char*)&rhs, sizeof(LeafNode));
 }
 
-/* -------------Auxiliary Structures------------- */
-class ScatteredMetadata {
-public:
-  PackedVersion h_version;
-  uint8_t valid;
-  GlobalAddress sibling_ptr;
-  FenceKeys fence_keys;
-
-  ScatteredMetadata(const LeafMetadata& metadata): h_version(metadata.h_version), valid(1), sibling_ptr(metadata.sibling_ptr), fence_keys(metadata.fence_keys) {}
-} __attribute__((packed));
-
-static_assert(sizeof(ScatteredMetadata) == define::scatterMetadataSize);
-
-inline bool operator==(const ScatteredMetadata &lhs, const ScatteredMetadata &rhs) {
-  return (lhs.sibling_ptr == rhs.sibling_ptr) && (lhs.fence_keys == rhs.fence_keys);
-}
-
-
-class LeafEntryGroup {
-public:
-  ScatteredMetadata metadata;
-  LeafEntry records[define::hopRange];
-} __attribute__((packed));
-
-static_assert(sizeof(LeafEntryGroup) == sizeof(ScatteredMetadata) + sizeof(LeafEntry) * define::hopRange);
-
-
-/* Scattered Leaf Node: [lock, leaf metadata, [scattered metadata, KV, KV...] * n] */
-class ScatteredLeafNode {  // must be cacheline-align
-public:
-  LeafEntryGroup record_groups[define::entryGroupNum];
-} __attribute__((packed));
-
-static_assert(sizeof(ScatteredLeafNode) == sizeof(LeafEntryGroup) * define::entryGroupNum);
-
 #endif // _LEAF_NODE_H_

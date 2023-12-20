@@ -64,8 +64,6 @@ bool kUseCoro = false;
 std::string ycsb_load_path;
 std::string ycsb_trans_path;
 int fix_range_size = -1;
-// turn it on if want to eliminate impact of write conflicts
-bool rm_write_conflict = false;
 
 
 std::thread th[MAX_APP_THREAD];
@@ -247,12 +245,6 @@ void thread_run(int id) {
       )));
       r.range_size = fix_range_size >= 0 ? fix_range_size : range_size;
       r.k = int2key(int_k);
-      if (rm_write_conflict) {
-        if (r.req_type == UPDATE || r.req_type == INSERT) {
-          uint64_t all_thread_num = kThreadCount * dsm->getClusterSize();
-          r.k = dsm->getNoComflictKey(key_hash(r.k), my_id, all_thread_num);
-        }
-      }
       req[req_num ++] = r;
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("thread %d: %d trans entries loaded.\n", id, cnt);
@@ -274,12 +266,6 @@ void thread_run(int id) {
       assert(r.req_type != SCAN);  // string workloads currently does not support SCAN
       r.range_size = 0;
       r.k = str2key(str_k);
-      if (rm_write_conflict) {
-        if (r.req_type == UPDATE || r.req_type == INSERT) {
-          uint64_t all_thread_num = kThreadCount * dsm->getClusterSize();
-          r.k = dsm->getNoComflictKey(key_hash(r.k), my_id, all_thread_num);
-        }
-      }
       req[req_num ++] = r;
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("thread %d: %d trans entries loaded.\n", id, cnt);
@@ -331,7 +317,7 @@ void thread_run(int id) {
 
 void parse_args(int argc, char *argv[]) {
   if (argc != 6 && argc != 7) {
-    printf("Usage: ./ycsb_test kNodeCount kThreadCount kCoroCnt workload_type[randint/email] workload_idx[a/b/c/d/e] [fix_range_size/rm_write_conflict]\n");
+    printf("Usage: ./ycsb_test kNodeCount kThreadCount kCoroCnt workload_type[randint/email] workload_idx[a/b/c/d/e] [fix_range_size]\n");
     exit(-1);
   }
 
@@ -344,7 +330,6 @@ void parse_args(int argc, char *argv[]) {
   ycsb_trans_path = "../../HopB-Tree/ycsb/workloads/txn_" + std::string(argv[4]) + "_workload" + std::string(argv[5]);
   if (argc == 7) {
     if(kIsScan) fix_range_size = atoi(argv[6]);
-    else rm_write_conflict = (atoi(argv[6]) != 0);
   }
 
   printf("kNodeCount %d, kThreadCount %d, kCoroCnt %d\n", kNodeCount, kThreadCount, kCoroCnt);
@@ -352,7 +337,6 @@ void parse_args(int argc, char *argv[]) {
   printf("ycsb_trans: %s\n", ycsb_trans_path.c_str());
   if (argc == 7) {
     if(kIsScan) printf("fix_range_size: %d\n", fix_range_size);
-    else printf("rm_write_conflict: %s\n", rm_write_conflict ? "true" : "false");
   }
 }
 
@@ -391,13 +375,6 @@ int main(int argc, char *argv[]) {
   config.threadNR = kThreadCount;
   dsm = DSM::getInstance(config);
   bindCore(kThreadCount * 2 + 1);
-#ifdef NEED_CACHE_EVICTION
-  dsm->loadKeySpace(ycsb_load_path, kIsStr);
-#else
-  if (rm_write_conflict) {
-    dsm->loadKeySpace(ycsb_load_path, kIsStr);
-  }
-#endif
   dsm->registerThread();
   rolex = new Rolex(dsm);
   dsm->barrier("benchmark");

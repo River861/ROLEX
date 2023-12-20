@@ -40,14 +40,23 @@ thread_local std::vector<CoroPush> Rolex::workers;
 thread_local CoroQueue Rolex::busy_waiting_queue;
 
 
-Rolex::Rolex(DSM *dsm, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
+Rolex::Rolex(DSM *dsm, const std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
   assert(dsm->is_register());
   std::fill(need_clear, need_clear + MAX_APP_THREAD, false);
   clear_debug_info();
 
-  // Rolex Cache
+  // processing data
+  std::sort(exist_keys.begin(), exist_keys.end());
+  exist_keys.erase(std::unique(exist_keys.begin(), exist_keys.end()), exist_keys.end());
+  std::sort(exist_keys.begin(), exist_keys.end());
+  for(int i = 1; i < exist_keys.size(); ++ i){
+    assert(exist_keys[i] >= exist_keys[i - 1]);
+  }
+
+  // initial local models
   // TODO
 
+  // RDWC
   local_lock_table = new LocalLockTable();
   root_ptr_ptr = get_root_ptr_ptr();
 

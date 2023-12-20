@@ -13,13 +13,7 @@ public:
   LeafVersionManager() {}
 
   static bool decode_node_versions(char *input_buffer, char *output_buffer);
-  static bool decode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset, int entry_num,
-                                      uint64_t metadata_offset, uint64_t segment_len, uint8_t& node_version);
-
   static void encode_node_versions(char *input_buffer, char *output_buffer);
-  static void encode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset,
-                                      const std::vector<int>& hopped_idxes, int l_idx, int r_idx,
-                                      uint64_t metadata_offset, uint64_t segment_len);
 
   static std::tuple<uint64_t, uint64_t, uint64_t> get_offset_info(int start_entry_idx, int entry_num = 1);
 
@@ -131,100 +125,5 @@ inline std::tuple<uint64_t, uint64_t, uint64_t> LeafVersionManager::get_offset_i
 
   return std::make_tuple(raw_offset, raw_length, first_offset);
 }
-
-
-/* Call before write a segment of leaf node. Only partial entry_versions (the versions of the hopped entries) will be incremented. */
-inline void LeafVersionManager::encode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset,
-                                                        const std::vector<int>& hopped_idxes, int l_idx, int r_idx,  // segment_range: [l_idx, r_idx]
-                                                        uint64_t metadata_offset, uint64_t segment_len) {
-  // increment hopped entry versions
-  auto entries_l = (LeafEntry*)input_buffer;
-  auto groups = (LeafEntryGroup*)(input_buffer + metadata_offset);
-  int size_l = metadata_offset / sizeof(LeafEntry);
-  int remain_size = r_idx - l_idx + 1 - size_l;
-  for (auto hopped_idx : hopped_idxes) if (hopped_idx >= l_idx && hopped_idx <= r_idx) {
-    if (hopped_idx - l_idx < size_l) {
-      auto& obj_version = entries_l[hopped_idx - l_idx].h_version;
-      ++ obj_version.entry_version;
-    }
-    else {
-      int idx = hopped_idx - l_idx - size_l;
-      assert(idx < remain_size);
-      auto& obj_version = groups[idx / define::hopRange].records[idx % define::hopRange].h_version;
-      ++ obj_version.entry_version;
-    }
-  }
-
-  // generate cacheline versions
-  memcpy(output_buffer, input_buffer, first_offset);
-  for (uint64_t i = first_offset, j = first_offset; i < segment_len; i += define::blockSize, j += define::blockSize) {
-    PackedVersion obj_version;
-    if (i < metadata_offset) {
-      obj_version = entries_l[i / sizeof(LeafEntry)].h_version;
-    }
-    else {
-      int group_idx = (i - metadata_offset) / sizeof(LeafEntryGroup);
-      int off = (i - metadata_offset) % sizeof(LeafEntryGroup);
-      if (off < (int)sizeof(ScatteredMetadata)) {
-        obj_version = groups[group_idx].metadata.h_version;
-      }
-      else {
-        obj_version = groups[group_idx].records[(off - sizeof(ScatteredMetadata)) / sizeof(LeafEntry)].h_version;
-      }
-    }
-    memcpy(output_buffer + j, (void *)&obj_version, sizeof(PackedVersion));
-    j += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, segment_len - i));
-  }
-}
-
-
-inline bool LeafVersionManager::decode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset, int entry_num,
-                                                        uint64_t metadata_offset, uint64_t segment_len, uint8_t& node_version) {
-  auto entries_l = (LeafEntry*)output_buffer;
-  auto groups = (LeafEntryGroup*)(output_buffer + metadata_offset);
-
-  memcpy(output_buffer, input_buffer, first_offset);
-  for (uint64_t i = first_offset, j = first_offset; j < segment_len; i += define::blockSize, j += define::blockSize) {
-    auto cacheline_version = *(PackedVersion *)(input_buffer + i);
-    i += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, segment_len - j));
-    PackedVersion obj_version;
-    if (j < metadata_offset) {
-      obj_version = entries_l[j / sizeof(LeafEntry)].h_version;
-    }
-    else {
-      int group_idx = (j - metadata_offset) / sizeof(LeafEntryGroup);
-      int off = (j - metadata_offset) % sizeof(LeafEntryGroup);
-      if (off < (int)sizeof(ScatteredMetadata)) {
-        obj_version = groups[group_idx].metadata.h_version;
-      }
-      else {
-        obj_version = groups[group_idx].records[(off - sizeof(ScatteredMetadata)) / sizeof(LeafEntry)].h_version;
-      }
-    }
-    // node- and entry-level consistency check
-    if (obj_version != cacheline_version) {
-      return false;
-    }
-  }
-  // node-level joint consistency check
-  int size_l = metadata_offset / sizeof(LeafEntry);
-  node_version = (size_l ? entries_l->h_version.node_version : groups[0].metadata.h_version.node_version);
-  for (int i = 0; i < size_l; ++ i) {
-    if (node_version != entries_l[i].h_version.node_version) return false;
-  }
-  int remain_size = entry_num - size_l;
-  int group_num = remain_size / define::hopRange + (remain_size % define::hopRange ? 1 : 0);
-  for (int i = 0; i < group_num; ++ i) {
-    if (node_version != groups[i].metadata.h_version.node_version) return false;
-    for (int j = 0; j < (int)define::hopRange; ++ j) {
-      if (node_version != groups[i].records[j].h_version.node_version) return false;
-      if (-- remain_size == 0) return true;
-    }
-  }
-  return true;
-}
-
 
 #endif // _LEAF_VERSION_MANAGER_H_
