@@ -48,7 +48,7 @@ int main(int argc, char** argv)  // 这个应该是MN上的代码？
   return 0;
 }
 
-void prepare() {
+void prepare() {  // 参照这个来创建本地Rolex，将remote_memory看作local cache来理解即可
   const usize MB = 1024 * 1024;
   ctrl = new RCtrl(FLAGS_port);
   RM_config conf(ctrl, (uint64_t)60 * 1024 * MB, FLAGS_leaf_num*sizeof(leaf_t), FLAGS_reg_leaf_region, FLAGS_leaf_num);  // lxc: Conf，节点的链接信息应该在这里

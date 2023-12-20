@@ -96,6 +96,7 @@ private:
 
 private:
   DSM *dsm;
+  rolex_t* rolex_cache;
   LocalLockTable *local_lock_table;
 
   static thread_local std::vector<CoroPush> workers;

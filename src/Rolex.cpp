@@ -5,6 +5,9 @@
 #include "InternalNode.h"
 #include "Hash.h"
 
+#include "rolex_libs/rolex/trait.hpp"
+#include "rolex_libs/rolex/remote_memory.hh"
+
 #include <algorithm>
 #include <city.h>
 #include <iostream>
@@ -55,6 +58,10 @@ Rolex::Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm
 
   // initial local models
   // TODO
+  rolex::RCtrl* ctrl = new RCtrl(define::fake_port);
+  rolex::RM_config conf(ctrl, define::model_region_size, define::leaf_num*sizeof(leaf_t), define::reg_leaf_region, define::leaf_num);
+  remote_memory_t* RM = new remote_memory_t(conf); 
+  rolex_cache = new rolex_t(RM, load_keys, load_keys);
 
   // RDWC
   local_lock_table = new LocalLockTable();

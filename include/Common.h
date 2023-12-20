@@ -95,6 +95,13 @@ constexpr uint64_t kChunkSize        = 16 * MB;   // B
 // Local Allocation
 constexpr uint64_t rdmaBufferSize     = 1;         // GB  [CONFIG] 4
 
+// Rolex
+constexpr uint64_t fake_port         = 8888;
+constexpr uint64_t model_region_size = 60 * MB;
+constexpr uint64_t leaf_region_size  = 1  * GB;
+constexpr uint64_t reg_leaf_region   = 101;
+constexpr uint64_t leaf_num          = 1000000;  // 预分配叶子数量
+
 // Cache (MB)
 constexpr int kIndexCacheSize  = 600;  // MB including kHotIdxCacheSize
 constexpr int kHotIdxCacheSize = 50;
