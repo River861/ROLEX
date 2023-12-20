@@ -318,7 +318,9 @@ int main(int argc, char *argv[]) {
   dsm = DSM::getInstance(config);
   dsm->registerThread();
   bindCore(kThreadCount * 2 + 1);
-  rolex = new Rolex(dsm);
+  std::vector<Key> load_keys;
+  // TODO load_keys
+  rolex = new Rolex(dsm, load_keys);
 
   dsm->barrier("benchmark");
 

@@ -14,7 +14,9 @@ int main() {
  
   dsm->registerThread();
 
-  auto rolex = new Rolex(dsm, std::vector<Key>{});  // TODO
+  std::vector<Key> load_keys;
+  // TODO load_keys
+  auto rolex = new Rolex(dsm, load_keys);
 
   Value v;
 
