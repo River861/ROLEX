@@ -1,11 +1,10 @@
 #include "DSM.h"
-#include "Tree.h"
+#include "Rolex.h"
 
 #include <iostream>
 
 #define TEST_NUM 102400  // 102400
 
-// TODO: use GTest
 int main() {
 
   DSMConfig config;
@@ -15,7 +14,7 @@ int main() {
  
   dsm->registerThread();
 
-  auto tree = new Tree(dsm);
+  auto rolex = new Rolex(dsm);
 
   Value v;
 
@@ -27,23 +26,23 @@ int main() {
   // test insert
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
     // printf("inserting %lu...\n", i);
-    tree->insert(int2key(i), i * 2);
+    rolex->insert(int2key(i), i * 2);
   }
   printf("insert passed.\n");
 
   // test update
   for (uint64_t i = TEST_NUM; i >= 1; --i) {
     // printf("updating %lu...\n", i);
-    tree->update(int2key(i), i * 3);
+    rolex->update(int2key(i), i * 3);
   }
   printf("update passed.\n");
 
   // test search
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
-    assert(!tree->search(int2key(TEST_NUM + i), v));
+    assert(!rolex->search(int2key(TEST_NUM + i), v));
   }
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
-    auto res = tree->search(int2key(i), v);
+    auto res = rolex->search(int2key(i), v);
     // std::cout << "search result:  " << (bool)res << " v: " << v << " ans: " << i * 3 << std::endl;
     assert(res && v == i * 3);
     // assert(res && v == i * 2);
@@ -53,7 +52,7 @@ int main() {
   // test scan
   std::map<Key, Value> ret;
   uint64_t from = 1, to = 10240;
-  tree->range_query(int2key(from), int2key(to), ret);
+  rolex->range_query(int2key(from), int2key(to), ret);
   for (uint64_t j = from; j < to; ++ j) assert(ret[int2key(j)] == j * 3);
   printf("range query passed.\n");
 

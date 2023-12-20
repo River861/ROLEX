@@ -17,11 +17,6 @@
 
 #include "WRLock.h"
 
-// DEBUG-CACHE
-#define TREE_ENABLE_CACHE
-#define CACHE_MORE_INTERNAL_NODE
-// #define NEED_CACHE_EVICTION
-
 #define TREE_ENABLE_READ_DELEGATION
 #define TREE_ENABLE_WRITE_COMBINING
 
@@ -114,7 +109,7 @@ constexpr Value kValueNull = std::numeric_limits<Value>::min();
 constexpr Value kValueMin = 1;
 constexpr Value kValueMax = std::numeric_limits<Value>::max();
 
-// Tree
+// Rolex
 constexpr uint64_t kRootPointerStoreOffest = kChunkSize / 2;
 static_assert(kRootPointerStoreOffest % sizeof(uint64_t) == 0);
 

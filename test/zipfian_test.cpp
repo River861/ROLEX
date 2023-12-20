@@ -1,4 +1,4 @@
-#include "Tree.h"
+#include "Rolex.h"
 #include "Timer.h"
 #include "zipf.h"
 
@@ -29,17 +29,7 @@ extern uint64_t try_read_op[MAX_APP_THREAD];
 extern uint64_t read_leaf_retry[MAX_APP_THREAD];
 extern uint64_t leaf_cache_invalid[MAX_APP_THREAD];
 extern uint64_t leaf_read_sibling[MAX_APP_THREAD];
-extern uint64_t try_speculative_read[MAX_APP_THREAD];
-extern uint64_t correct_speculative_read[MAX_APP_THREAD];
 extern uint64_t try_read_leaf[MAX_APP_THREAD];
-extern uint64_t read_two_segments[MAX_APP_THREAD];
-extern uint64_t try_read_hopscotch[MAX_APP_THREAD];
-extern uint64_t try_insert_op[MAX_APP_THREAD];
-extern uint64_t split_node[MAX_APP_THREAD];
-extern uint64_t try_write_segment[MAX_APP_THREAD];
-extern uint64_t write_two_segments[MAX_APP_THREAD];
-extern double load_factor_sum[MAX_APP_THREAD];
-extern uint64_t split_hopscotch[MAX_APP_THREAD];
 extern uint64_t retry_cnt[MAX_APP_THREAD][MAX_FLAG_NUM];
 
 int kReadRatio;
@@ -65,7 +55,7 @@ extern volatile bool need_clear[MAX_APP_THREAD];
 extern uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
 uint64_t latency_th_all[LATENCY_WINDOWS];
 
-Tree *tree;
+Rolex *rolex;
 DSM *dsm;
 
 
@@ -141,12 +131,12 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 }
 
 
-void work_func(Tree *tree, const Request& r, CoroPull* sink) {
+void work_func(Rolex *rolex, const Request& r, CoroPull* sink) {
   if (r.req_type == SEARCH) {
     Value v;
-    tree->search(r.k, v, sink);
+    rolex->search(r.k, v, sink);
   } else {
-    tree->insert(r.k, r.v, sink);
+    rolex->insert(r.k, r.v, sink);
   }
 }
 
@@ -165,7 +155,7 @@ void thread_load(int id) {
   uint64_t end_warm_key = kWarmRatio * kKeySpace;
   for (uint64_t i = 0; i < end_warm_key; ++i) {
     if (i % all_loader_thread == loader_id) {
-      tree->insert(to_key(i), i * 2);
+      rolex->insert(to_key(i), i * 2);
     }
   }
   printf("loader %lu load finish\n", loader_id);
@@ -209,7 +199,7 @@ void thread_run(int id) {
 
 
 #ifdef USE_CORO
-  tree->run_coroutine(gen_func, work_func, kCoroCnt);
+  rolex->run_coroutine(gen_func, work_func, kCoroCnt);
 #else
   /// without coro
   Timer timer;
@@ -220,7 +210,7 @@ void thread_run(int id) {
     auto r = gen->next();
 
     timer.begin();
-    work_func(tree, r, nullptr);
+    work_func(rolex, r, nullptr);
     auto us_10 = timer.end() / 100;
 
     if (us_10 >= LATENCY_WINDOWS) {
@@ -283,7 +273,7 @@ int main(int argc, char *argv[]) {
   dsm = DSM::getInstance(config);
   dsm->registerThread();
   bindCore(kThreadCount * 2 + 1);
-  tree = new Tree(dsm);
+  rolex = new Rolex(dsm);
 
   dsm->barrier("benchmark");
 
@@ -338,38 +328,11 @@ int main(int argc, char *argv[]) {
     }
 
     uint64_t try_read_leaf_cnt = 0, read_leaf_retry_cnt = 0, leaf_cache_invalid_cnt = 0, leaf_read_sibling_cnt = 0;
-    uint64_t try_speculative_read_cnt = 0, correct_speculative_read_cnt = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
       try_read_leaf_cnt += try_read_leaf[i];
       read_leaf_retry_cnt += read_leaf_retry[i];
       leaf_cache_invalid_cnt += leaf_cache_invalid[i];
       leaf_read_sibling_cnt += leaf_read_sibling[i];
-      try_speculative_read_cnt += try_speculative_read[i];
-      correct_speculative_read_cnt += correct_speculative_read[i];
-    }
-
-    uint64_t try_read_hopscotch_cnt = 0, read_two_segments_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      try_read_hopscotch_cnt += try_read_hopscotch[i];
-      read_two_segments_cnt += read_two_segments[i];
-    }
-
-    uint64_t try_insert_op_cnt = 0, split_node_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      try_insert_op_cnt += try_insert_op[i];
-      split_node_cnt += split_node[i];
-    }
-
-    uint64_t try_write_segment_cnt = 0, write_two_segments_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      try_write_segment_cnt += try_write_segment[i];
-      write_two_segments_cnt += write_two_segments[i];
-    }
-
-    double load_factor_sum_all = 0, split_hopscotch_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      load_factor_sum_all += load_factor_sum[i];
-      split_hopscotch_cnt += split_hopscotch[i];
     }
 
     uint64_t all_retry_cnt[MAX_FLAG_NUM];
@@ -409,12 +372,6 @@ int main(int argc, char *argv[]) {
       printf("read leaf retry rate: %.4lf\n", read_leaf_retry_cnt * 1.0 / try_read_leaf_cnt);
       printf("read invalid leaf rate: %.4lf\n", leaf_cache_invalid_cnt * 1.0 / try_read_leaf_cnt);
       printf("read sibling leaf rate: %.4lf\n", leaf_read_sibling_cnt * 1.0 / try_read_leaf_cnt);
-      printf("speculative read rate: %.4lf\n", try_speculative_read_cnt * 1.0 / try_read_leaf_cnt);
-      printf("correct ratio of speculative read: %.4lf\n", correct_speculative_read_cnt * 1.0 / try_speculative_read_cnt);
-      printf("read two hopscotch-segments rate: %.4lf\n", read_two_segments_cnt * 1.0 / try_read_hopscotch_cnt);
-      printf("write two hopscotch-segments rate: %.4lf\n", write_two_segments_cnt * 1.0 / try_write_segment_cnt);
-      printf("node split rate: %.4lf\n", split_node_cnt * 1.0 / try_insert_op_cnt);
-      printf("avg. leaf load factor: %.4lf\n", load_factor_sum_all * 1.0 / split_hopscotch_cnt);
       printf("\n");
     }
   }
@@ -423,7 +380,7 @@ int main(int argc, char *argv[]) {
     th[i].join();
     printf("Thread %d joined.\n", i);
   }
-  tree->statistics();
+  rolex->statistics();
   dsm->barrier("fin");
 
   return 0;

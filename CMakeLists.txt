@@ -12,7 +12,6 @@ set(LINKS_FLAGS "-lnuma -lcityhash -lboost_coroutine -lboost_context -lpthread -
 #Env Options
 option (STATIC_MN_IP "Use static MNs according the IPs of the nodes" OFF)
 option (ENABLE_CORO "Turn on the coroutine" ON)
-option (ENABLE_CACHE "Turn on the computing-side cache" OFF)
 option (LONG_TEST_EPOCH "Use big epoch num and long epoch duration" OFF)
 option (SHORT_TEST_EPOCH "Use small epoch num and short epoch duration" OFF)
 option (MIDDLE_TEST_EPOCH "Use middle epoch num and short epoch duration" OFF)
@@ -27,12 +26,6 @@ if(ENABLE_CORO)
     add_definitions(-DUSE_CORO)
 else()
     remove_definitions(-DUSE_CORO)
-endif()
-
-if(ENABLE_CACHE)
-    add_definitions(-DTREE_ENABLE_CACHE)
-else()
-    remove_definitions(-DTREE_ENABLE_CACHE)
 endif()
 
 if(LONG_TEST_EPOCH)

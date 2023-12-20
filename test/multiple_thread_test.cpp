@@ -1,6 +1,6 @@
 #include "Timer.h"
 #define KEY_SPACE_LIMIT
-#include "Tree.h"
+#include "Rolex.h"
 #include "zipf.h"
 #include "third_party/format.h"
 
@@ -34,17 +34,7 @@ extern uint64_t try_read_op[MAX_APP_THREAD];
 extern uint64_t read_leaf_retry[MAX_APP_THREAD];
 extern uint64_t leaf_cache_invalid[MAX_APP_THREAD];
 extern uint64_t leaf_read_sibling[MAX_APP_THREAD];
-extern uint64_t try_speculative_read[MAX_APP_THREAD];
-extern uint64_t correct_speculative_read[MAX_APP_THREAD];
 extern uint64_t try_read_leaf[MAX_APP_THREAD];
-extern uint64_t read_two_segments[MAX_APP_THREAD];
-extern uint64_t try_read_hopscotch[MAX_APP_THREAD];
-extern uint64_t try_insert_op[MAX_APP_THREAD];
-extern uint64_t split_node[MAX_APP_THREAD];
-extern uint64_t try_write_segment[MAX_APP_THREAD];
-extern uint64_t write_two_segments[MAX_APP_THREAD];
-extern double load_factor_sum[MAX_APP_THREAD];
-extern uint64_t split_hopscotch[MAX_APP_THREAD];
 extern uint64_t retry_cnt[MAX_APP_THREAD][MAX_FLAG_NUM];
 
 int kReadRatio;
@@ -69,7 +59,7 @@ std::atomic<uint64_t> search_cnt{0};
 std::default_random_engine e;
 std::uniform_int_distribution<Value> randmultiple(1UL, define::kValueMax / define::kKeyMax);
 
-Tree *tree;
+Rolex *rolex;
 DSM *dsm;
 
 
@@ -117,13 +107,13 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 
 
 std::set<Key> load_keys;
-void work_func(Tree *tree, const Request& r, CoroPull* sink) {
+void work_func(Rolex *rolex, const Request& r, CoroPull* sink) {
 #ifdef CONDUCT_DEBUG
   if (r.req_type == SEARCH) {
     Value v;
     // 3. check existed key search correctness
     search_cnt ++;
-    if(tree->search(r.k, v, sink)) {
+    if(rolex->search(r.k, v, sink)) {
       auto int_k = key2int(r.k);
       assert(int_k != 0 && v % int_k == 0);
     }
@@ -135,7 +125,7 @@ void work_func(Tree *tree, const Request& r, CoroPull* sink) {
   }
   else if (r.req_type == SCAN) {
     std::map<Key, Value> ret;
-    tree->range_query(r.k, r.k + fix_range_size, ret);
+    rolex->range_query(r.k, r.k + fix_range_size, ret);
     for (const auto& p : ret) {
       auto int_k = key2int(p.first);
       assert(int_k != 0 && p.second % int_k == 0);
@@ -143,14 +133,14 @@ void work_func(Tree *tree, const Request& r, CoroPull* sink) {
   }
   else {
     Value v;
-    if (tree->search(r.k, v, sink)) {
-      tree->update(r.k, r.v, sink);
+    if (rolex->search(r.k, v, sink)) {
+      rolex->update(r.k, r.v, sink);
     }
     else {
-      tree->insert(r.k, r.v, sink);
+      rolex->insert(r.k, r.v, sink);
     }
     // 5. check insert correctness
-    assert(tree->search(r.k, v, sink));  // no delete
+    assert(rolex->search(r.k, v, sink));  // no delete
     auto int_k = key2int(r.k);
     assert(int_k != 0 && v % int_k == 0);
   }
@@ -158,19 +148,19 @@ void work_func(Tree *tree, const Request& r, CoroPull* sink) {
   if (r.req_type == SEARCH) {
     Value v;
     search_cnt ++;
-    if(!tree->search(r.k, v, sink)) search_not_found ++;
+    if(!rolex->search(r.k, v, sink)) search_not_found ++;
   }
   else if (r.req_type == SCAN) {
     std::map<Key, Value> ret;
-    tree->range_query(r.k, r.k + fix_range_size, ret);
+    rolex->range_query(r.k, r.k + fix_range_size, ret);
   }
   else {
     Value v;
     if (load_keys.find(r.k) != load_keys.end()) {
-      tree->update(r.k, r.v, sink);
+      rolex->update(r.k, r.v, sink);
     }
     else {
-      tree->insert(r.k, r.v, sink);
+      rolex->insert(r.k, r.v, sink);
     }
   }
 #endif
@@ -201,7 +191,7 @@ void thread_run(int id) {
   for (uint64_t i = 0; i < end_warm_key; ++ i) {
     if (i % all_thread == my_id) {
       if (i % LOAD_HEARTBEAT == 0) printf("[thread %lu] end_warm_key=%lu, all_thread=%lu, loading %lu...\n", my_id, end_warm_key, all_thread, i);
-      tree->insert(to_key(i), key2int(to_key(i)) * 2);
+      rolex->insert(to_key(i), key2int(to_key(i)) * 2);
     }
   }
 
@@ -226,7 +216,7 @@ void thread_run(int id) {
   for (uint64_t i = 1; i < end_warm_key; ++i) {
     if (i % all_thread == my_id) {
       Value v;
-      auto res = tree->search(to_key(i), v);
+      auto res = rolex->search(to_key(i), v);
       assert(res && v == key2int(to_key(i)) * 2);
     }
   }
@@ -251,7 +241,7 @@ void thread_run(int id) {
 
 #ifdef USE_CORO
   // benchmark correctness test
-  tree->run_coroutine(gen_func, work_func, kCoroCnt);
+  rolex->run_coroutine(gen_func, work_func, kCoroCnt);
 #else
   /// without coro
   Timer timer;
@@ -262,7 +252,7 @@ void thread_run(int id) {
     auto r = gen->next();
 
     timer.begin();
-    work_func(tree, r, nullptr);
+    work_func(rolex, r, nullptr);
     auto us_10 = timer.end() / 100;
 
     if (us_10 >= LATENCY_WINDOWS) {
@@ -328,7 +318,7 @@ int main(int argc, char *argv[]) {
   dsm = DSM::getInstance(config);
   dsm->registerThread();
   bindCore(kThreadCount * 2 + 1);
-  tree = new Tree(dsm);
+  rolex = new Rolex(dsm);
 
   dsm->barrier("benchmark");
 
@@ -384,38 +374,11 @@ int main(int argc, char *argv[]) {
     }
 
     uint64_t try_read_leaf_cnt = 0, read_leaf_retry_cnt = 0, leaf_cache_invalid_cnt = 0, leaf_read_sibling_cnt = 0;
-    uint64_t try_speculative_read_cnt = 0, correct_speculative_read_cnt = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
       try_read_leaf_cnt += try_read_leaf[i];
       read_leaf_retry_cnt += read_leaf_retry[i];
       leaf_cache_invalid_cnt += leaf_cache_invalid[i];
       leaf_read_sibling_cnt += leaf_read_sibling[i];
-      try_speculative_read_cnt += try_speculative_read[i];
-      correct_speculative_read_cnt += correct_speculative_read[i];
-    }
-
-    uint64_t try_read_hopscotch_cnt = 0, read_two_segments_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      try_read_hopscotch_cnt += try_read_hopscotch[i];
-      read_two_segments_cnt += read_two_segments[i];
-    }
-
-    uint64_t try_insert_op_cnt = 0, split_node_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      try_insert_op_cnt += try_insert_op[i];
-      split_node_cnt += split_node[i];
-    }
-
-    uint64_t try_write_segment_cnt = 0, write_two_segments_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      try_write_segment_cnt += try_write_segment[i];
-      write_two_segments_cnt += write_two_segments[i];
-    }
-
-    double load_factor_sum_all = 0, split_hopscotch_cnt = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      load_factor_sum_all += load_factor_sum[i];
-      split_hopscotch_cnt += split_hopscotch[i];
     }
 
     uint64_t all_retry_cnt[MAX_FLAG_NUM];
@@ -456,13 +419,6 @@ int main(int argc, char *argv[]) {
       printf("read leaf retry rate: %.4lf\n", read_leaf_retry_cnt * 1.0 / try_read_leaf_cnt);
       printf("read invalid leaf rate: %.4lf\n", leaf_cache_invalid_cnt * 1.0 / try_read_leaf_cnt);
       printf("read sibling leaf rate: %.4lf\n", leaf_read_sibling_cnt * 1.0 / try_read_leaf_cnt);
-      printf("speculative read rate: %.4lf\n", try_speculative_read_cnt * 1.0 / try_read_leaf_cnt);
-      printf("correct ratio of speculative read: %.4lf\n", correct_speculative_read_cnt * 1.0 / try_speculative_read_cnt);
-      printf("read not found rate: %.4lf\n", search_not_found * 1.0 / search_cnt);
-      printf("read two hopscotch-segments rate: %.4lf\n", read_two_segments_cnt * 1.0 / try_read_hopscotch_cnt);
-      printf("write two hopscotch-segments rate: %.4lf\n", write_two_segments_cnt * 1.0 / try_write_segment_cnt);
-      printf("node split rate: %.4lf\n", split_node_cnt * 1.0 / try_insert_op_cnt);
-      printf("avg. leaf load factor: %.4lf\n", load_factor_sum_all * 1.0 / split_hopscotch_cnt);
       printf("\n");
     }
     std::fill(need_clear, need_clear + MAX_APP_THREAD, true);
@@ -473,7 +429,7 @@ int main(int argc, char *argv[]) {
     th[i].join();
     printf("Thread %d joined.\n", i);
   }
-  tree->statistics();
+  rolex->statistics();
   dsm->barrier("fin");
 
   return 0;
