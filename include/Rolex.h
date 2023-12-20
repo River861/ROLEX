@@ -4,7 +4,6 @@
 #include "DSM.h"
 #include "Common.h"
 #include "LocalLockTable.h"
-#include "LeafVersionManager.h"
 #include "VersionManager.h"
 
 #include <atomic>
