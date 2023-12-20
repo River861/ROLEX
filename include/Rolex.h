@@ -67,7 +67,7 @@ static_assert(sizeof(RootEntry) == 8);
 
 class Rolex {
 public:
-  Rolex(DSM *dsm, const std::vector<Key> &load_keys, uint16_t rolex_id = 0);
+  Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id = 0);
 
   using WorkFunc = std::function<void (Rolex *, const Request&, CoroPull *)>;
   void run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Request* req = nullptr, int req_num = 0);

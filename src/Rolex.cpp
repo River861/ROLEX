@@ -76,7 +76,6 @@ RootEntry Rolex::get_root_ptr(CoroPull* sink) {
   auto root_buffer = (dsm->get_rbuf(sink)).get_cas_buffer();
   dsm->read_sync((char *)root_buffer, root_ptr_ptr, sizeof(RootEntry), sink);
   auto root_entry = *(RootEntry *)root_buffer;
-  rough_height.store(root_entry.level);
   return root_entry;
 }
 
