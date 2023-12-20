@@ -40,7 +40,7 @@ thread_local std::vector<CoroPush> Rolex::workers;
 thread_local CoroQueue Rolex::busy_waiting_queue;
 
 
-Rolex::Rolex(DSM *dsm, const std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
+Rolex::Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
   assert(dsm->is_register());
   std::fill(need_clear, need_clear + MAX_APP_THREAD, false);
   clear_debug_info();
