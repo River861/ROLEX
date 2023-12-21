@@ -17,7 +17,7 @@ DEFINE_uint64(non_nkeys, 100000, "Number of non_keys for inserting");
 DEFINE_string(workloads, "normal", "The workloads for evaluation");
 // test config
 DEFINE_uint64(mem_threads, 3, "Server threads.");
-DEFINE_uint64(threads, 24, "Server threads.");  // CN threads ? lxc
+DEFINE_uint64(threads, 24, "Server threads.");
 DEFINE_int32(coros, 10, "num client coroutine used per threads");
 DEFINE_double(read_ratio, 1, "The ratio for reading");
 DEFINE_double(insert_ratio, 0, "The ratio for writing");

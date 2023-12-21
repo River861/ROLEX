@@ -49,8 +49,10 @@ public:
    */
   explicit LeafAllocator(char *m, const u64 &t, const u64 &leaf_num) : mem_pool(m), total_sz(t) {
     LOG(3) << "leaf_num: "<<leaf_num<<" , (total_sz-sizeof(u64))/S): "<<(total_sz-sizeof(u64))/S;
-    ASSERT(leaf_num<(total_sz-sizeof(u64))/S) << "Small leaf region for allocating "<<(total_sz-sizeof(u64))/S;
-    prealloc_leaves(leaf_num);
+    // modified by lxc
+    // ASSERT(leaf_num<(total_sz-sizeof(u64))/S) << "Small leaf region for allocating "<<(total_sz-sizeof(u64))/S;
+    // prealloc_leaves(leaf_num);
+    prealloc_leaves((total_sz-sizeof(u64))/S);
   }
 
   inline auto used_num() -> u64 {
@@ -97,7 +99,7 @@ private:
 
 
   //  ======= Preallocate leaves to store data ============
-  void prealloc_leaves(u64 leaf_num) {  // TODO lxc: 这里应该让MN初始化时做
+  void prealloc_leaves(u64 leaf_num) {
     // 1.init the metadata (current number of the leaf, total number of allocated leaves)
     u64 cur_num = 0;
     ASSERT(cur_alloc_sz==0) << "LeafAllocator has been used since cur_alloc_sz != 0.";

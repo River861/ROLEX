@@ -138,18 +138,24 @@ public:
 
     u64 total_size = models.size();
     LOG(4) << "Training models: "<<total_size<<" used leaves: "<<this->RM->leaf_allocator()->used_num();
-    // lxc
-    u64 consumed_cache_size = 0;
-    const usize MB = 1024 * 1024;
-    for (const auto& m : models) consumed_cache_size += sizeof(m);
-    for (const auto& k : model_keys) consumed_cache_size += sizeof(k);
-    LOG(4) << "comsumed cache size=" << (double)consumed_cache_size / MB << " MB";
     assert(model_keys.size() == total_size);
     // write total_num into model_region
     memcpy(RM->model_allocator()->get_total_ptr(), &total_size, sizeof(u64));
   }
 
   // ========= API functions for memory nodes {debugging} : search, update, insert, remove ===========
+  auto get_consumed_cache_size() -> double {  // modified by lxc, XX MB
+    u64 consumed_cache_size = 0;
+    const usize MB = 1024 * 1024;
+    for (const auto& m : models) consumed_cache_size += sizeof(m);
+    for (const auto& k : model_keys) consumed_cache_size += sizeof(k);
+    return (double)consumed_cache_size / MB
+  }
+
+  auto get_leaf_range(const K& key) -> std::pair<int, int> {  // modified by lxc, return [l, r]
+    return models[model_for_key(key)].get_leaf_range(key);
+  }
+
   auto search(const K &key, V &val) -> bool {
     return models[model_for_key(key)].search(key, val, this->RM->leaf_allocator());
   }

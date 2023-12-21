@@ -5,9 +5,6 @@
 #include "InternalNode.h"
 #include "Hash.h"
 
-#include "rolex_libs/rolex/trait.hpp"
-#include "rolex_libs/rolex/remote_memory.hh"
-
 #include <algorithm>
 #include <city.h>
 #include <iostream>
@@ -47,43 +44,10 @@ Rolex::Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm
   assert(dsm->is_register());
   std::fill(need_clear, need_clear + MAX_APP_THREAD, false);
   clear_debug_info();
-
-  // processing data
-  std::sort(load_keys.begin(), load_keys.end());
-  load_keys.erase(std::unique(load_keys.begin(), load_keys.end()), load_keys.end());
-  std::sort(load_keys.begin(), load_keys.end());
-  for(int i = 1; i < load_keys.size(); ++ i){
-    assert(load_keys[i] >= load_keys[i - 1]);
-  }
-
-  // initial local models
-  // TODO
-  rolex::RCtrl* ctrl = new RCtrl(define::fake_port);
-  rolex::RM_config conf(ctrl, define::model_region_size, define::leaf_num*sizeof(leaf_t), define::reg_leaf_region, define::leaf_num);
-  remote_memory_t* RM = new remote_memory_t(conf); 
-  rolex_cache = new rolex_t(RM, load_keys, load_keys);
-
+  // Cache
+  rolex_cache = new RolexCache(dsm, load_keys);
   // RDWC
   local_lock_table = new LocalLockTable();
-  root_ptr_ptr = get_root_ptr_ptr();
-
-  if (dsm->getMyNodeID() == 0) {
-    // init leaf pages
-    // TODO
-  }
-}
-
-
-GlobalAddress Rolex::get_root_ptr_ptr() {
-  return GlobalAddress{0, define::kRootPointerStoreOffest + sizeof(GlobalAddress) * rolex_id};
-}
-
-
-RootEntry Rolex::get_root_ptr(CoroPull* sink) {
-  auto root_buffer = (dsm->get_rbuf(sink)).get_cas_buffer();
-  dsm->read_sync((char *)root_buffer, root_ptr_ptr, sizeof(RootEntry), sink);
-  auto root_entry = *(RootEntry *)root_buffer;
-  return root_entry;
 }
 
 
@@ -253,7 +217,9 @@ void Rolex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
   }
 }
 
-void Rolex::statistics() {}
+void Rolex::statistics() {
+  rolex_cache->statistics();
+}
 
 void Rolex::clear_debug_info() {
   memset(cache_miss, 0, sizeof(double) * MAX_APP_THREAD);

@@ -281,7 +281,7 @@ class RecvChannel : public AbsChannel {
   }
 
 public:
-  static Option<Arc<RecvChannel>> create(int port,const std::string &h = "localhost") {  // TODO lxc
+  static Option<Arc<RecvChannel>> create(int port,const std::string &h = "localhost") {
     auto rc = Arc<RecvChannel>(new RecvChannel(port));
     if (rc->valid()) {
       return rc;

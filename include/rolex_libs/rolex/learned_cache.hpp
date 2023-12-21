@@ -67,7 +67,7 @@ public:
    * @param local_data_buf contains the obtained data, this buffer is registed with data_rc
    */
   template<typename rc_t>
-  auto search(const K &key, V &val, rc_t& data_rc, char *local_data_buf) -> bool {  // TODO lxc: 这里才是要调用的接口
+  auto search(const K &key, V &val, rc_t& data_rc, char *local_data_buf) -> bool {  // lxc: 这里才是rdma接口
     std::vector<leaf_addr_t> leaves;
     models[model_for_key(key)].get_leaf_addr(key, leaves);
     Op<> leaf_op;
@@ -128,7 +128,7 @@ public:
       
       // 3. lock, insert and write the leaf
       if(leaf->insertHere(key)) {
-        // 3.1 lock, fixme: use remote lock  // TODO lxc: 得补一下
+        // 3.1 lock, fixme: use remote lock
         
         // insert and write back
         if(!leaf->isfull()) {

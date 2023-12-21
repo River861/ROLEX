@@ -82,18 +82,20 @@ public:
                     const typename std::vector<V>::const_iterator &vals_begin, 
                     size_t size, leaf_alloc_t* alloc) : model(slope, intercept), capacity(size), ltable()
   {
+    static int cnt = 0;
     assert(size>0);
     auto res = alloc->fetch_new_leaf();
     ltable.train_emplace_back(res.second);
-    leaf_t* cur_leaf = reinterpret_cast<leaf_t*>(res.first);
-    for(int i=0; i<size; i++) {
-      if(cur_leaf->isfull()){
-        res = alloc->fetch_new_leaf();
-        ltable.train_emplace_back(res.second);
-        cur_leaf = reinterpret_cast<leaf_t*>(res.first);
-      }
-      cur_leaf->insert_not_full(*(keys_begin+i), *(vals_begin+i));
-    }
+    // modified by lxc: 不需要往本地内存里写入kv数据
+    // leaf_t* cur_leaf = reinterpret_cast<leaf_t*>(res.first);
+    // for(int i=0; i<size; i++) {
+    //   if(cur_leaf->isfull()){
+    //     res = alloc->fetch_new_leaf();
+    //     ltable.train_emplace_back(res.second);
+    //     cur_leaf = reinterpret_cast<leaf_t*>(res.first);
+    //   }
+    //   cur_leaf->insert_not_full(*(keys_begin+i), *(vals_begin+i));
+    // }
   }
 
   // ============== functions for serialization and deserialization ================
@@ -132,6 +134,15 @@ public:
   }
 
   // ========= API functions for memory nodes {debugging} : search, update, insert, remove ===========
+  auto get_leaf_range(const K &key) -> std::pair<int, int> {  // modified by lxc, return: [l, h]
+    auto[pre, lo, hi] = this->model.predict(key, capacity);
+    lo /= leaf_t::max_slot();
+    hi /= leaf_t::max_slot();
+    int l=std::max((int)lo, 0);
+    int h=std::max((int)hi, 0);
+    return std::make_pair(l, h);
+  }
+
   auto search(const K &key, V &val, leaf_alloc_t* alloc) -> bool {
     auto[pre, lo, hi] = this->model.predict(key, capacity);
     lo /= leaf_t::max_slot();

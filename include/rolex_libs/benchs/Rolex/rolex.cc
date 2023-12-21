@@ -15,7 +15,7 @@
 
 // gflag, 定义命令行参数, (参数名, 默认值, 说明信息)
 DEFINE_int64(port, 8888, "Server listener (UDP) port.");
-DEFINE_uint64(leaf_num, 1000000, "The number of registed leaves.");  // lxc: 预分配的叶子数量！！
+DEFINE_uint64(leaf_num, 1000000, "The number of registed leaves.");
 // DEFINE_uint64(reg_leaf_region, 101, "The name to register an MR at rctrl for data nodes.");
 
 
@@ -33,7 +33,7 @@ void prepare();
 void run_benchmark(size_t sec);
 void *run_fg(void *param);
 
-int main(int argc, char** argv)  // 这个应该是MN上的代码？
+int main(int argc, char** argv)
 { 
   gflags::ParseCommandLineFlags(&argc, &argv, true);  // true表示从argc, argv中移除解析掉的参数
 
@@ -51,8 +51,8 @@ int main(int argc, char** argv)  // 这个应该是MN上的代码？
 void prepare() {  // 参照这个来创建本地Rolex，将remote_memory看作local cache来理解即可
   const usize MB = 1024 * 1024;
   ctrl = new RCtrl(FLAGS_port);
-  RM_config conf(ctrl, (uint64_t)60 * 1024 * MB, FLAGS_leaf_num*sizeof(leaf_t), FLAGS_reg_leaf_region, FLAGS_leaf_num);  // lxc: Conf，节点的链接信息应该在这里
-  remote_memory_t* RM = new remote_memory_t(conf);  // MN上的rolex_index需要传入RM来初始化，相应的LearnedCache则是需要传入LC，可以仿照写一些client端的脚本（结合local_connection.hh）
+  RM_config conf(ctrl, (uint64_t)60 * 1024 * MB, FLAGS_leaf_num*sizeof(leaf_t), FLAGS_reg_leaf_region, FLAGS_leaf_num);
+  remote_memory_t* RM = new remote_memory_t(conf);
 
   load_data();
   LOG(2) << "[processing data]";
@@ -62,7 +62,7 @@ void prepare() {  // 参照这个来创建本地Rolex，将remote_memory看作lo
   for(size_t i=1; i<exist_keys.size(); i++){
       assert(exist_keys[i]>=exist_keys[i-1]);
   }
-  rolex_index = new rolex_t(RM, exist_keys, exist_keys);  // TODO lxc: 没有通过rdma来load数据?
+  rolex_index = new rolex_t(RM, exist_keys, exist_keys);
   // rolex_index->print_data();
 
   RDMA_LOG(2) << "Data distribution bench server started!";
@@ -114,7 +114,7 @@ void run_benchmark(size_t sec) {
     }
 
     size_t throughput = 0;
-    for (auto &p : thread_params) {  //  TODO lxc: 只是一个CN的tpt
+    for (auto &p : thread_params) {
         throughput += p.throughput;
     }
     LOG(2)<<"[micro] Throughput(op/s): " << throughput / sec;

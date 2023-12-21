@@ -19,7 +19,7 @@ public:
     }
     `
    */
-  static std::vector<DevIdx> query_dev_names() {  // TODO lxc mlx5_2
+  static std::vector<DevIdx> query_dev_names() {
 
     std::vector<DevIdx> res;
 

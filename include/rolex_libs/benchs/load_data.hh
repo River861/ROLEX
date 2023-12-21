@@ -36,7 +36,7 @@ typedef struct operation_item {
 struct {
     size_t operate_num = 60000000;
     operation_item* operate_queue;
-}YCSBconfig;  // lxc: ycsb缓存
+}YCSBconfig;
 
 
 
@@ -162,7 +162,7 @@ void lognormal_data(){
     }
 }
 
-void load_ycsb(const char *path) {  // TODO lxc
+void load_ycsb(const char *path) {
   FILE *ycsb, *ycsb_read;
 	char *buf = NULL;
 	size_t len = 0;

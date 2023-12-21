@@ -65,7 +65,7 @@ auto rolex_client_worker(const usize& nthreads) -> std::vector<std::unique_ptr<X
        * 
        */
       //std::string server_addr = "192.168.3.101:8888";
-      std::string server_addr = "10.0.0.1:8899";  // TODO lxc
+      std::string server_addr = "10.0.0.1:8899";
       int ud_id = thread_id;
       UDTransport sender;
       {

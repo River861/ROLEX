@@ -5,6 +5,7 @@
 #include "Common.h"
 #include "LocalLockTable.h"
 #include "VersionManager.h"
+#include "RolexCache.h"
 
 #include <atomic>
 #include <city.h>
@@ -50,21 +51,6 @@ enum {
 };
 
 
-class RootEntry {
-public:
-  uint16_t level;
-  PackedGAddr ptr;
-
-  RootEntry(const uint16_t level, const GlobalAddress& ptr) : level(level), ptr(ptr) {}
-  RootEntry(uint64_t val) : level(val & ((1UL << define::packedGaddrBit) - 1)), ptr(val >> define::packedGaddrBit) {}
-
-  operator uint64_t() const { return ((uint64_t)ptr << 16) | level; }
-  operator std::pair<uint16_t, GlobalAddress>() const { return std::make_pair(level, (GlobalAddress)ptr); }
-} __attribute__((packed));
-
-static_assert(sizeof(RootEntry) == 8);
-
-
 class Rolex {
 public:
   Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id = 0);
@@ -82,8 +68,6 @@ public:
 private:
   // common
   void before_operation(CoroPull* sink);
-  GlobalAddress get_root_ptr_ptr();
-  RootEntry get_root_ptr(CoroPull* sink);
 
   // lock
   static std::pair<uint64_t, uint64_t> get_lock_info(const GlobalAddress &node_addr, bool is_leaf);
@@ -96,14 +80,13 @@ private:
 
 private:
   DSM *dsm;
-  rolex_t* rolex_cache;
+  RolexCache* rolex_cache;
   LocalLockTable *local_lock_table;
 
   static thread_local std::vector<CoroPush> workers;
   static thread_local CoroQueue busy_waiting_queue;
 
   uint64_t rolex_id;
-  GlobalAddress root_ptr_ptr;  // the address which stores root pointer;
 };
 
 
