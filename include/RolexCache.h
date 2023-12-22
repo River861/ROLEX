@@ -5,7 +5,12 @@
 #include "Timer.h"
 #include "DSM.h"
 
-#include "rolex_libs/rolex/trait.hpp"
+#include "rolex_libs/rolex/leaf_allocator.hpp"
+#include "rolex_libs/rolex/model_allocator.hpp"
+#include "rolex_libs/rolex/leaf_table.hpp"
+#include "rolex_libs/rolex/rolex.hpp"
+#include "rolex_libs/rolex/learned_cache.hpp"
+#include "rolex_libs/rolex/remote_memory.hh"
 #include "rolex_libs/rolex/remote_memory.hh"
 
 #include <queue>
@@ -13,13 +18,20 @@
 #include <vector>
 
 
+using leaf_alloc_t = LeafAllocator<LeafNode, sizeof(LeafNode)>;
+using model_alloc_t = ModelAllocator<Key>;
+using remote_memory_t = RemoteMemory<leaf_alloc_t, model_alloc_t>;
+using leaf_table_t = LeafTable<Key, Value, LeafNode, leaf_alloc_t>;
+using rolex_t = Rolex<Key, Value, LeafNode, leaf_alloc_t, remote_memory_t, define::epsilon>;
+
+
 class RolexCache {
 
 public:
   RolexCache(DSM* dsm, std::vector<Key> &load_keys);
 
-  void search_from_cache(const Key &k);
-  void search_range_from_cache(const Key &from, const Key &to);
+  std::pair<int, int> search_from_cache(const Key &k);
+  std::pair<int, int> search_range_from_cache(const Key &from, const Key &to);
   void statistics();
 
 private:
@@ -37,20 +49,22 @@ inline RolexCache::RolexCache(DSM* dsm, std::vector<Key> &load_keys) : dsm(dsm) 
   }
 
   // initial local models
-  rolex::RCtrl* ctrl = new RCtrl(define::fake_port);
-  rolex::RM_config conf(ctrl, define::model_region_size, define::fake_leaf_region_size, define::fake_reg_leaf_region, define::leaf_num);
+  rolex::RCtrl* ctrl = new RCtrl(define::fakePort);
+  rolex::RM_config conf(ctrl, define::modelRegionSize, define::fakeLeafRegionSize, define::fakeRegLeafRegion, define::preAllocLeafNum);
   remote_memory_t* RM = new remote_memory_t(conf);
   rolex_model = new rolex_t(RM, load_keys, load_keys);
 }
 
 
-inline void RolexCache::search_from_cache(const Key &k) {
-
+inline std::pair<int, int> RolexCache::search_from_cache(const Key &k) {
+  return rolex_model->get_leaf_range(k);
 }
 
 
-inline void RolexCache::search_range_from_cache(const Key &from, const Key &to) {
-
+inline std::pair<int, int> RolexCache::search_range_from_cache(const Key &from, const Key &to) {
+  auto [l, _]  = rolex_model->get_leaf_range(from);
+  auto [__, r] = rolex_model->get_leaf_range(to);
+  return std::make_pair(l, r);
 }
 
 

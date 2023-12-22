@@ -14,14 +14,14 @@ namespace rolex {
 class RM_config {
 public:
   rdmaio::RCtrl* ctrl;
-  uint64_t model_region_size;
+  uint64_t modelRegionSize;
 
   uint64_t leaf_region_size;
   uint64_t reg_leaf_region;
   uint64_t leaf_num;
 
   explicit RM_config(rdmaio::RCtrl* ctrl, uint64_t ms, uint64_t ls, uint64_t rlr, uint64_t ln) 
-    : ctrl(ctrl), model_region_size(ms), leaf_region_size(ls), reg_leaf_region(rlr), leaf_num(ln) {}
+    : ctrl(ctrl), modelRegionSize(ms), leaf_region_size(ls), reg_leaf_region(rlr), leaf_num(ln) {}
 };
 
 
@@ -66,7 +66,7 @@ private:
 
   void create_regions() {
     // [RCtrl] create model regions
-    model_region = HugeRegion::create(conf.model_region_size).value();
+    model_region = HugeRegion::create(conf.modelRegionSize).value();
     for (uint i = 0; i < all_nics.size(); ++i) {
       ctrl->registered_mrs.create_then_reg(
         i, model_region->convert_to_rmem().value(), ctrl->opened_nics.query(i).value());

@@ -68,6 +68,7 @@ public:
 private:
   // common
   void before_operation(CoroPull* sink);
+  void get_leaf_addresses(int l, int r, std::vector<GlobalAddress>& addrs);
 
   // lock
   static std::pair<uint64_t, uint64_t> get_lock_info(const GlobalAddress &node_addr, bool is_leaf);

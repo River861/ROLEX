@@ -96,15 +96,13 @@ constexpr uint64_t kChunkSize        = 16 * MB;   // B
 constexpr uint64_t rdmaBufferSize     = 1;         // GB  [CONFIG] 4
 
 // Rolex
-constexpr uint64_t fake_port              = 8888;
-constexpr uint64_t model_region_size      = 100 * MB;
-constexpr uint64_t fake_leaf_region_size  = 100 * MB;
-constexpr uint64_t fake_reg_leaf_region   = 101;
-constexpr uint64_t leaf_num               = 1000000;  // 预分配叶子数量
-
-// Cache (MB)
-constexpr int kIndexCacheSize  = 600;  // MB including kHotIdxCacheSize
-constexpr int kHotIdxCacheSize = 50;
+constexpr uint64_t fakePort            = 8888;
+constexpr uint64_t modelRegionSize     = 100 * MB;
+constexpr uint64_t fakeLeafRegionSize  = 100 * MB;
+constexpr uint64_t fakeRegLeafRegion   = 101;
+constexpr uint64_t preAllocLeafNum     = 1000000;  // 预分配叶子数量
+constexpr uint32_t leafSpanSize        = 64;
+constexpr uint64_t epsilon             = 32;
 
 // KV
 constexpr uint64_t kKeyMin = 1;
@@ -116,9 +114,9 @@ constexpr Value kValueNull = std::numeric_limits<Value>::min();
 constexpr Value kValueMin = 1;
 constexpr Value kValueMax = std::numeric_limits<Value>::max();
 
-// Rolex
-constexpr uint64_t kRootPointerStoreOffest = kChunkSize / 2;
-static_assert(kRootPointerStoreOffest % sizeof(uint64_t) == 0);
+// Region
+constexpr uint64_t kLeafRegionStartOffset = kChunkSize / 2;
+static_assert(kLeafRegionStartOffset % sizeof(uint64_t) == 0);
 
 // Packed GlobalAddress
 constexpr uint32_t mnIdBit         = 8;
@@ -134,7 +132,6 @@ constexpr uint32_t cachelineSize   = 64;
 constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
 // Leaf Node
-constexpr uint32_t leafSpanSize     = 128;
 constexpr uint32_t scatterMetadataSize = versionSize + sizeof(uint8_t) + sizeof(uint64_t) + keyLen * 2;
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint8_t) * 2 + sizeof(uint64_t) + keyLen * 2;
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;

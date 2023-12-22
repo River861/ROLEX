@@ -71,6 +71,13 @@ inline void Rolex::before_operation(CoroPull* sink) {
 }
 
 
+inline void Rolex::get_leaf_addresses(int l, int r, std::vector<GlobalAddress>& addrs) {
+  for (int i = l; i <= r; ++ i) {
+    addrs.emplace_back(GlobalAddress{i % MEMORY_NODE_NUM, define::kLeafRegionStartOffset + (i / MEMORY_NODE_NUM) * define::allocationLeafSize});
+  }
+}
+
+
 inline std::pair<uint64_t, uint64_t> Rolex::get_lock_info(const GlobalAddress &node_addr, bool is_leaf) {
   auto lock_offset = get_unlock_info(node_addr, is_leaf);
 
