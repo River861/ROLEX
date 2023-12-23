@@ -17,6 +17,9 @@ private:
   remote_memory_t* RM;
   std::vector<K> model_keys;
   std::vector<model_t> models;
+  // modified by lxc
+  std::vector<int> leaf_idx_offsets;
+  std::vector<int> capacity_offsets;
 
 public:
   explicit Rolex(remote_memory_t *RM)
@@ -25,6 +28,9 @@ public:
   explicit Rolex(remote_memory_t *RM, const std::vector<K> &keys, const std::vector<V> &vals)  // 这个应该是MN上的index，直接从MN上load数据，然后CN调用read_remote_index来cache它？
       : RM(RM), model_keys(), models() {
     assert(RM->leaf_allocator() && RM->model_allocator());
+    // modified by lxc
+    leaf_idx_offsets.emplace_back(0);
+    capacity_offsets.emplace_back(0);
     train(keys, vals);
   }
 
@@ -152,8 +158,10 @@ public:
     return (double)consumed_cache_size / MB
   }
 
-  auto get_leaf_range(const K& key) -> std::pair<int, int> {  // modified by lxc, return [l, r]
-    return models[model_for_key(key)].get_leaf_range(key);
+  auto get_leaf_range(const K& key) -> std::tuple<int, int, int, int> {  // modified by lxc, return [l, r]
+    int model_id = model_for_key(key);
+    auto [l, r] = models[model_id].get_predict_range(key);
+    return std::make_tuple(l, r, leaf_idx_offsets[model_id], capacity_offsets[model_id]);
   }
 
   auto search(const K &key, V &val) -> bool {
@@ -216,6 +224,10 @@ private:
     model_t model(slope, intercept, keys_begin, vals_begin, size, this->RM->leaf_allocator());
     //models.emplace_back(slope, intercept, keys_begin, vals_begin, size, this->RM->leaf_allocator());
     models.emplace_back(model);
+    // modified by lxc
+    int leaf_num_sum = leaf_idx_offsets.back(), capacity_sum = capacity_offsets.back();
+    leaf_idx_offsets.emplace_back(leaf_num_sum + model.get_table_size());
+    capacity_offsets.emplace_back(capacity_sum + model.get_capacity());
 
     // write model into model_region
     auto mSeria = model.serialize();

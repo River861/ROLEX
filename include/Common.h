@@ -98,9 +98,8 @@ constexpr uint64_t rdmaBufferSize     = 1;         // GB  [CONFIG] 4
 // Rolex
 constexpr uint64_t fakePort            = 8888;
 constexpr uint64_t modelRegionSize     = 100 * MB;
-constexpr uint64_t fakeLeafRegionSize  = 100 * MB;
+constexpr uint64_t fakeLeafRegionSize  = 2   * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
-constexpr uint64_t preAllocLeafNum     = 1000000;  // 预分配叶子数量
 constexpr uint32_t leafSpanSize        = 64;
 constexpr uint64_t epsilon             = 32;
 
@@ -132,45 +131,21 @@ constexpr uint32_t cachelineSize   = 64;
 constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
 // Leaf Node
-constexpr uint32_t scatterMetadataSize = versionSize + sizeof(uint8_t) + sizeof(uint64_t) + keyLen * 2;
-constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint8_t) * 2 + sizeof(uint64_t) + keyLen * 2;
+constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
-
-// Internal Node
-constexpr uint32_t internalSpanSize = 64;
-constexpr uint32_t internalMetadataSize = versionSize + sizeof(uint8_t) * 2 + sizeof(uint64_t) * 3 + keyLen * 2;
-constexpr uint32_t internalEntrySize = versionSize + keyLen + sizeof(uint64_t);
-
-// Hopscotch Hashing
-constexpr uint32_t hopRange = 8;
-constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
-constexpr uint32_t groupSize     = leafEntrySize * hopRange;
-
-// Rdma Read/Write Size
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize, versionSize);
-constexpr uint32_t transInternalSize = ADD_CACHELINE_VERSION_SIZE(internalMetadataSize + internalEntrySize * internalSpanSize, versionSize);
-
-// Allocation Size
-constexpr uint32_t lock_pos_num = 1;
-constexpr uint32_t allocationLeafSize = transLeafSize + lock_pos_num * 8UL;  // remain space for the lock
-constexpr uint32_t allocationInternalSize = transInternalSize + lock_pos_num * 8UL;
+constexpr uint32_t allocationLeafSize = transLeafSize + 8UL;  // remain space for the lock
 
 // Rdma Buffer
 constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;
 constexpr int64_t  kPerCoroRdmaBuf    = kPerThreadRdmaBuf / MAX_CORO_NUM;
-constexpr uint32_t bufferEntrySize    = ADD_CACHELINE_VERSION_SIZE(scatterMetadataSize + std::max(leafEntrySize, internalEntrySize), versionSize);
-constexpr uint32_t bufferMetadataSize = ADD_CACHELINE_VERSION_SIZE(std::max(leafMetadataSize, internalMetadataSize), versionSize);
+constexpr uint32_t bufferMetadataSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize, versionSize);
 
 // On-chip Memory
 constexpr uint64_t kLockStartAddr   = 0;
 constexpr uint64_t kLockChipMemSize = ON_CHIP_SIZE * 1024;
 constexpr uint64_t kLocalLockNum    = 4 * MB;  // tune to an appropriate value (as small as possible without affect the performance)
 constexpr uint64_t kOnChipLockNum   = kLockChipMemSize * 8;  // 1bit-lock
-
-// Greedy
-constexpr uint64_t maxSizePerIO = 284;  // 284;
-constexpr uint32_t maxLeafEntryPerIO = maxSizePerIO / leafEntrySize;
-constexpr uint32_t maxInternalEntryPerIO = maxSizePerIO / internalEntrySize;
 }
 
 

@@ -4,7 +4,6 @@
 #include "Common.h"
 #include "Metadata.h"
 #include "LeafNode.h"
-#include "InternalNode.h"
 
 #include <vector>
 
@@ -15,12 +14,7 @@ public:
   VersionManager() {}
 
   static bool decode_node_versions(char *input_buffer, char *output_buffer);
-  static bool decode_header_versions(char *input_buffer, char *output_buffer, uint8_t& node_version);
-  static bool decode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset, int entry_num, uint8_t& node_version);
-
   static void encode_node_versions(char *input_buffer, char *output_buffer);
-  static void encode_entry_versions(char *input_buffer, char *output_buffer, uint64_t first_offset);
-  static void encode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset, const std::vector<int>& hopped_idxes, int l_idx, int r_idx);
 
   static std::tuple<uint64_t, uint64_t, uint64_t> get_offset_info(int start_entry_idx, int entry_num = 1);
 
@@ -50,11 +44,6 @@ inline bool VersionManager<NODE, ENTRY>::decode_node_versions(char *input_buffer
     }
     // node- and entry-level consistency check
     if (obj_version != cacheline_version) {
-      // std::cout << "[FUCK]: decode_node_versions()-1: j=" << j << " STRUCT_OFFSET(records)=" << STRUCT_OFFSET(NODE, records) << " STRUCT_OFFSET(entry[2])=" << STRUCT_OFFSET(NODE, records[2]) << std::endl;
-      // std::cout << "[FUCK]: decode_node_versions()-1: entries[" << (j - STRUCT_OFFSET(NODE, records)) / sizeof(ENTRY) << "].h_version=" << obj_version << "  cacheline_version=" << cacheline_version << std::endl;
-      // std::cout << "[FUCK]: decode_node_versions()-1: metadata.h_version=" << metadata.h_version;
-      // for (int i = 0; i < 7; ++ i) std::cout << "  entries[" << i << "].h_version=" << entries[i].h_version;
-      // std::cout << std::endl;
       return false;
     }
   }
@@ -62,11 +51,6 @@ inline bool VersionManager<NODE, ENTRY>::decode_node_versions(char *input_buffer
   const auto& node_version = entries[0].h_version.node_version;
   bool is_consistent = (node_version == metadata.h_version.node_version);
   for (const auto& entry : entries) is_consistent &= (node_version == entry.h_version.node_version);
-  // if (!is_consistent) {
-  //   std::cout << "[FUCK]: decode_node_versions()-2: metadata.h_version=" << metadata.h_version;
-  //   for (int i = 0; i < 5; ++ i) std::cout << "  entries[" << i << "].h_version=" << entries[i].h_version;
-  //   std::cout << std::endl;
-  // }
   return is_consistent;
 }
 
@@ -131,94 +115,7 @@ inline std::tuple<uint64_t, uint64_t, uint64_t> VersionManager<NODE, ENTRY>::get
   auto raw_start_distance = get_raw_distance(decoded_start_offset - FIRST_OFFSET);
   raw_length = raw_end_distance - raw_start_distance;
 
-  // if (start_entry_idx == 2) {
-  //   std::cout << "[FUCK]: get_offset_info(): decoded_start_offset="<< decoded_start_offset << " decoded_end_offset=" << decoded_end_offset;
-  //   std::cout << " FIRST_OFFSET=" << FIRST_OFFSET << " first_offset=" << first_offset;
-  //   std::cout << " raw_offset=" << raw_offset << " raw_length=" << raw_length << std::endl;
-  // }
   return std::make_tuple(raw_offset, raw_length, first_offset);
-}
-
-
-/* Call before write the entire entry. Only the entry_versions will be incremented. */
-template <class NODE, class ENTRY>
-inline void VersionManager<NODE, ENTRY>::encode_entry_versions(char *input_buffer, char *output_buffer, uint64_t first_offset) {
-  // increment entry versions
-  auto& obj_version = ((ENTRY *)input_buffer)->h_version;
-  ++ obj_version.entry_version;
-
-  // generate cacheline versions
-  memcpy(output_buffer, input_buffer, first_offset);
-  for (uint64_t i = first_offset, j = first_offset; i < sizeof(ENTRY); i += define::blockSize, j += define::blockSize) {
-    memcpy(output_buffer + j, (void *)&obj_version, sizeof(PackedVersion));
-    j += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, sizeof(ENTRY) - i));
-  }
-}
-
-
-/* Call before write a segment of leaf node. Only partial entry_versions (the versions of the hopped entries) will be incremented. */
-template <class NODE, class ENTRY>
-inline void VersionManager<NODE, ENTRY>::encode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset, const std::vector<int>& hopped_idxes, int l_idx, int r_idx) {  // segment_range: [l_idx, r_idx]
-  // increment hopped entry versions
-  auto entries = (ENTRY*)input_buffer;
-  for (auto hopped_idx : hopped_idxes) if (hopped_idx >= l_idx && hopped_idx <= r_idx) {
-    auto& obj_version = entries[hopped_idx - l_idx].h_version;
-    ++ obj_version.entry_version;
-  }
-
-  // generate cacheline versions
-  memcpy(output_buffer, input_buffer, first_offset);
-  auto segment_len = sizeof(ENTRY) * (r_idx - l_idx + 1);
-  for (uint64_t i = first_offset, j = first_offset; i < segment_len; i += define::blockSize, j += define::blockSize) {
-    auto obj_version = entries[i / sizeof(ENTRY)].h_version;
-    memcpy(output_buffer + j, (void *)&obj_version, sizeof(PackedVersion));
-    j += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, segment_len - i));
-  }
-}
-
-
-template <class NODE, class ENTRY>
-inline bool VersionManager<NODE, ENTRY>::decode_header_versions(char *input_buffer, char *output_buffer, uint8_t& node_version) {
-  memcpy(output_buffer, input_buffer, FIRST_OFFSET);
-  PackedVersion obj_version = ((NODE *)output_buffer)->metadata.h_version;
-  node_version = obj_version.node_version;
-
-  auto header_size = (uint64_t)STRUCT_OFFSET(NODE, records);
-  for (uint64_t i = FIRST_OFFSET, j = FIRST_OFFSET; j < header_size; i += define::blockSize, j += define::blockSize) {
-    auto cacheline_version = *(PackedVersion *)(input_buffer + i);
-    i += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, header_size - j));
-    // node-level consistency check
-    if (obj_version != cacheline_version) {
-      return false;
-    }
-  }
-  return true;
-}
-
-template <class NODE, class ENTRY>
-inline bool VersionManager<NODE, ENTRY>::decode_segment_versions(char *input_buffer, char *output_buffer, uint64_t first_offset, int entry_num, uint8_t& node_version) {
-  auto entries = (ENTRY *)output_buffer;
-
-  memcpy(output_buffer, input_buffer, first_offset);
-  auto segment_len = sizeof(ENTRY) * entry_num;
-  for (uint64_t i = first_offset, j = first_offset; j < segment_len; i += define::blockSize, j += define::blockSize) {
-    auto cacheline_version = *(PackedVersion *)(input_buffer + i);
-    i += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, segment_len - j));
-    auto obj_version = entries[j / sizeof(ENTRY)].h_version;
-    // node- and entry-level consistency check
-    if (obj_version != cacheline_version) {
-      return false;
-    }
-  }
-  // node-level joint consistency check
-  node_version = entries[0].h_version.node_version;
-  bool is_consistent = true;
-  for (int i = 1; i < entry_num; ++ i) is_consistent &= (node_version == entries[i].h_version.node_version);
-  return is_consistent;
 }
 
 

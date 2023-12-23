@@ -33,10 +33,4 @@ inline uint64_t get_hashed_cache_table_index(const GlobalAddress& leaf_addr, int
   return (leaf_addr.to_uint64() + kv_idx) % HASH_TABLE_SIZE;
 }
 
-inline uint64_t get_hashed_remote_lock_index(const GlobalAddress& addr) {
-  // return CityHash64((char *)&addr, sizeof(addr)) % define::lock_pos_num;
-  return addr.to_uint64() % define::lock_pos_num;
-}
-
-
 #endif // _HASH_H_

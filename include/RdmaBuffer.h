@@ -18,21 +18,17 @@ private:
   char *buffer;
 
   uint64_t *cas_buffer;
-  char *internal_buffer;
   char *leaf_buffer;
   char *segment_buffer;
   char *metadata_buffer;
-  char *entry_buffer;
   char *range_buffer;
   char *zero_byte;
   uint64_t *zero_8_byte;
 
   int cas_buffer_cur;
-  int internal_buffer_cur;
   int leaf_buffer_cur;
   int segment_buffer_cur;
   int metadata_buffer_cur;
-  int entry_buffer_cur;
 
 public:
   RdmaBuffer() = default;
@@ -41,18 +37,15 @@ public:
     // setup buffer partition
     this->buffer    = buffer;
     cas_buffer      = (uint64_t *)buffer;
-    internal_buffer = (char     *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
-    leaf_buffer     = (char     *)((char *)internal_buffer + define::allocationInternalSize * kPageBufferCnt);
+    leaf_buffer     = (char     *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
     segment_buffer  = (char     *)((char *)leaf_buffer     + define::allocationLeafSize     * kLeafBufferCnt);
     metadata_buffer = (char     *)((char *)segment_buffer  + define::allocationLeafSize     * kSegmentBufferCnt);
-    entry_buffer    = (char     *)((char *)metadata_buffer + define::bufferMetadataSize     * kHeaderBufferCnt);
-    zero_byte       = (char     *)((char *)entry_buffer    + define::bufferEntrySize        * kEntryBufferCnt);
+    zero_byte       = (char     *)((char *)metadata_buffer + define::bufferMetadataSize     * kHeaderBufferCnt);
     zero_8_byte     = (uint64_t *)((char *)zero_byte       + sizeof(char));
     range_buffer    = (char     *)((char *)zero_8_byte     + sizeof(uint64_t));
     assert(range_buffer - buffer < define::kPerCoroRdmaBuf);
     // init counters
     cas_buffer_cur      = 0;
-    internal_buffer_cur = 0;
     leaf_buffer_cur     = 0;
     segment_buffer_cur  = 0;
     metadata_buffer_cur = 0;
@@ -62,11 +55,6 @@ public:
   uint64_t *get_cas_buffer() {
     cas_buffer_cur = (cas_buffer_cur + 1) % kCasBufferCnt;
     return cas_buffer + cas_buffer_cur;
-  }
-
-  char *get_internal_buffer() {
-    internal_buffer_cur = (internal_buffer_cur + 1) % kPageBufferCnt;
-    return internal_buffer + internal_buffer_cur * define::allocationInternalSize;
   }
 
   char *get_leaf_buffer() {
@@ -79,19 +67,9 @@ public:
     return segment_buffer + segment_buffer_cur * define::allocationLeafSize;
   }
 
-  template<class NODE>
-  char *get_node_buffer() {
-    return NODE::IS_LEAF ? get_leaf_buffer() : get_internal_buffer();
-  }
-
   char *get_metadata_buffer() {
     metadata_buffer_cur = (metadata_buffer_cur + 1) % kHeaderBufferCnt;
     return metadata_buffer + metadata_buffer_cur * define::bufferMetadataSize;
-  }
-
-  char *get_entry_buffer() {
-    entry_buffer_cur = (entry_buffer_cur + 1) % kEntryBufferCnt;
-    return entry_buffer + entry_buffer_cur * define::bufferEntrySize;
   }
 
   char *get_range_buffer() {

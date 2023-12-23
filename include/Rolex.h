@@ -53,6 +53,7 @@ enum {
 
 class Rolex {
 public:
+  using VerMng = VersionManager<LeafNode, LeafEntry>;
   Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id = 0);
 
   using WorkFunc = std::function<void (Rolex *, const Request&, CoroPull *)>;
@@ -68,13 +69,19 @@ public:
 private:
   // common
   void before_operation(CoroPull* sink);
-  void get_leaf_addresses(int l, int r, std::vector<GlobalAddress>& addrs);
+  GlobalAddress get_leaf_address(int leaf_idx);
+
+  // low-level functions
+  void fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink);
+  void fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink);
+  void write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, CoroPull* sink);
+  void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, CoroPull* sink);
 
   // lock
-  static std::pair<uint64_t, uint64_t> get_lock_info(const GlobalAddress &node_addr, bool is_leaf);
-  static uint64_t get_unlock_info(const GlobalAddress &node_addr, bool is_leaf);
-  void lock_node(const GlobalAddress &node_addr, bool is_leaf, CoroPull* sink);
-  void unlock_node(const GlobalAddress &node_addr, bool is_leaf, CoroPull* sink, bool async = false);
+  static std::pair<uint64_t, uint64_t> get_lock_info(const GlobalAddress &node_addr);
+  static uint64_t get_unlock_info(const GlobalAddress &node_addr);
+  void lock_node(const GlobalAddress &node_addr, CoroPull* sink);
+  void unlock_node(const GlobalAddress &node_addr, CoroPull* sink, bool async = false);
 
   // coroutine
   void coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func);
@@ -86,6 +93,7 @@ private:
 
   static thread_local std::vector<CoroPush> workers;
   static thread_local CoroQueue busy_waiting_queue;
+  static thread_local std::map<int, std::vector<GlobalAddress> > syn_leaf_addrs;
 
   uint64_t rolex_id;
 };

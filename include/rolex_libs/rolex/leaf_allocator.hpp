@@ -49,10 +49,8 @@ public:
    */
   explicit LeafAllocator(char *m, const u64 &t, const u64 &leaf_num) : mem_pool(m), total_sz(t) {
     LOG(3) << "leaf_num: "<<leaf_num<<" , (total_sz-sizeof(u64))/S): "<<(total_sz-sizeof(u64))/S;
-    // modified by lxc
-    // ASSERT(leaf_num<(total_sz-sizeof(u64))/S) << "Small leaf region for allocating "<<(total_sz-sizeof(u64))/S;
-    // prealloc_leaves(leaf_num);
-    prealloc_leaves((total_sz-sizeof(u64))/S);
+    ASSERT(leaf_num<(total_sz-sizeof(u64))/S) << "Small leaf region for allocating "<<(total_sz-sizeof(u64))/S;
+    prealloc_leaves(leaf_num);
   }
 
   inline auto used_num() -> u64 {

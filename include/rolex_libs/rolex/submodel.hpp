@@ -82,11 +82,17 @@ public:
                     const typename std::vector<V>::const_iterator &vals_begin, 
                     size_t size, leaf_alloc_t* alloc) : model(slope, intercept), capacity(size), ltable()
   {
+    // modified by lxc: 不需要往本地内存里写入kv数据
     static int cnt = 0;
     assert(size>0);
-    auto res = alloc->fetch_new_leaf();
-    ltable.train_emplace_back(res.second);
-    // modified by lxc: 不需要往本地内存里写入kv数据
+    ltable.train_emplace_back(716);
+    for (int i = 0; i < (size / leaf_t::max_slot() + (size % leaf_t::max_slot() ? 1 : 0)); ++ i) {
+      ltable.train_emplace_back(716);
+    }
+    // static int cnt = 0;
+    // assert(size>0);
+    // auto res = alloc->fetch_new_leaf();
+    // ltable.train_emplace_back(res.second);
     // leaf_t* cur_leaf = reinterpret_cast<leaf_t*>(res.first);
     // for(int i=0; i<size; i++) {
     //   if(cur_leaf->isfull()){
@@ -134,7 +140,15 @@ public:
   }
 
   // ========= API functions for memory nodes {debugging} : search, update, insert, remove ===========
-  auto get_leaf_range(const K &key) -> std::pair<int, int> {  // modified by lxc, return: [l, h]
+  auto get_table_size() -> size_t {  // modified by lxc
+    return ltable.table_size();
+  }
+
+  auto get_capacity() -> size_t {  // modified by lxc
+    return capacity;
+  }
+
+  auto get_predict_range(const K &key) -> std::pair<int, int> {  // modified by lxc, return: [l, h]
     auto[pre, lo, hi] = this->model.predict(key, capacity);
     lo /= leaf_t::max_slot();
     hi /= leaf_t::max_slot();

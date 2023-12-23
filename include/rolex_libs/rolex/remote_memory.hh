@@ -22,6 +22,9 @@ public:
 
   explicit RM_config(rdmaio::RCtrl* ctrl, uint64_t ms, uint64_t ls, uint64_t rlr, uint64_t ln) 
     : ctrl(ctrl), modelRegionSize(ms), leaf_region_size(ls), reg_leaf_region(rlr), leaf_num(ln) {}
+
+  explicit RM_config(rdmaio::RCtrl* ctrl, uint64_t ms, uint64_t ls, uint64_t rlr) 
+    : ctrl(ctrl), modelRegionSize(ms), leaf_region_size(ls), reg_leaf_region(rlr) {}  // modified by lxc
 };
 
 
@@ -79,8 +82,7 @@ private:
 
   void init_allocator() {
     ASSERT(leaf_region) << "Leaf region not exist";
-    leafAlloc = new leaf_alloc_t(static_cast<char *>(leaf_region->start_ptr()), leaf_region->size(), conf.leaf_num);
-    // leafAlloc = new leaf_alloc_t(static_cast<char *>(leaf_region->start_ptr()), leaf_region->size());
+    leafAlloc = new leaf_alloc_t(static_cast<char *>(leaf_region->start_ptr()), leaf_region->size());  // modified by lxc
     ASSERT(model_region) << "Model region not exist";
     modelAlloc = new model_alloc_t(static_cast<char *>(model_region->start_ptr()), model_region->size());
   }
