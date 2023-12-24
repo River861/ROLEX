@@ -49,7 +49,6 @@ public:
     leaf_buffer_cur     = 0;
     segment_buffer_cur  = 0;
     metadata_buffer_cur = 0;
-    entry_buffer_cur    = 0;
   }
 
   uint64_t *get_cas_buffer() {
