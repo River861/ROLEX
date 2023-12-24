@@ -59,7 +59,7 @@ public:
 public:
   LeafNode() : metadata(), records{} {}
 
-  static usize max_slot() { return define::leafSpanSize; }
+  static uint64_t max_slot() { return define::leafSpanSize; }
 } __attribute__((packed));
 
 static_assert(sizeof(LeafNode) == sizeof(LeafMetadata) + sizeof(LeafEntry) * define::leafSpanSize);

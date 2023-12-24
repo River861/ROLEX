@@ -34,7 +34,7 @@ enum loglevel {
   WARNING = 4,
   EMPH = 3,
   INFO = 2,
-  DEBUG = 1,
+  _DEBUG = 1,
   EVERYTHING = 0
 };
 
