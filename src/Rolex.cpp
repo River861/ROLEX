@@ -341,17 +341,42 @@ bool Rolex::search(const Key &k, Value &v, CoroPull* sink) {
   auto [l, r] = rolex_cache->search_from_cache(k);
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> leaves;
-  for (int i = l; i <= r; ++ i) {
+  for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));
+  for (int i = l; i <= r; ++ i) { // including synonym leaves
     auto leaf_addr = get_leaf_address(i);
-    leaf_addrs.emplace_back(leaf_addr);
-    // including synonym leaves
     if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
       leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
     }
   }
   fetch_nodes(leaf_addrs, leaves, sink);
   // read cache-miss synonmy leaves
-  
+  std::vector<GlobalAddress> append_leaf_addrs;
+  std::vector<LeafNode*> append_leaves;
+  for (int i = 0; i <= r - l; ++ i) {
+    auto leaf_addr = leaf_addrs[i];
+    auto leaf = leaves[i];
+    if (leaf->metadata.synonym_ptr != GlobalAddress::Null()
+        && syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
+      syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
+      append_leaf_addrs.emplace_back(leaf->metadata.synonym_ptr);
+    }
+  }
+  if (!append_leaf_addrs.empty()) {
+    fetch_nodes(append_leaf_addrs, append_leaves, sink);
+    leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
+    leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
+  }
+  // search the fetched leaves
+  for (const auto& leaf : leaves) {
+    for (const auto& e : leaf->records) {
+      if (e.key == define::kkeyNull) break;
+      if (e.key == k) {
+        v = e.value;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 
