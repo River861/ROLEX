@@ -146,6 +146,9 @@ constexpr uint64_t kLockStartAddr   = 0;
 constexpr uint64_t kLockChipMemSize = ON_CHIP_SIZE * 1024;
 constexpr uint64_t kLocalLockNum    = 4 * MB;  // tune to an appropriate value (as small as possible without affect the performance)
 constexpr uint64_t kOnChipLockNum   = kLockChipMemSize * 8;  // 1bit-lock
+
+// Synonym leaf
+constexpr uint64_t synRegionOffset   = ROUND_UP(60000000ULL * allocationLeafSize / leafSpanSize, 6); // B
 }
 
 

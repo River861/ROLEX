@@ -138,14 +138,14 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
 
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
-  std::vector<int> leaf_idxs;
+  std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
-  for (int i = l; i <= r; ++ i) leaf_idxs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
-  fetch_nodes(leaf_idxs, _, sink);
+  for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
+  fetch_nodes(leaf_addrs, _, sink);
 
   // 2. Fine-grained locking
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
-  LeafNode* leaf, syn_leaf = nullptr;
+  LeafNode* leaf = nullptr, syn_leaf = nullptr;
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
@@ -160,33 +160,79 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
     leaf = two_leaves.front();
     syn_leaf = two_leaves.back();
   }
-  // insert k
+  // insert k locally
+  assert(leaf != nullptr);
   auto& records = leaf->records;
   int i;
+  bool write_leaf = false, write_syn_leaf = false;
   for (i = 0; i < (int)define::leafSpanSize; ++ i) {
     const auto& e = records[i];
     assert(e.key != k);
     if (e.key == define::kkeyNull || e.key > k) break;
   }
-  int j = i;
-  while (j < (int)define::leafSpanSize && records[j].key != define::kkeyNull) j ++;
-  if (j == (int)define::leafSpanSize) {
-    // TODO: 加上synonym leaves
-    if (!syn_leaf) {
-      // allocate a synonym leaf
+  if (i == (int)define::leafSpanSize) {  // insert k into the synonym leaf
+    write_syn_leaf = true;
+    auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
+    if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
+      write_leaf = true;
+      syn_leaf_addrs[insert_leaf_addr] = syn_addr;
+      leaf->metadata.synonym_ptr = syn_addr;
     }
-    else {
-      // store in the synonym leaf
-    }
-    assert(false);
   }
-  // move [i, j) => [i+1, j+1]
-  for (int k = j - 1; k >= i; -- k) records[k + 1] = records[k];
-  records[i].update(k, v);
+  else {  // insert k into the leaf
+    write_leaf = true;
+    int j = i;
+    while (j < (int)define::leafSpanSize && records[j].key != define::kkeyNull) j ++;
+    if (j == (int)define::leafSpanSize) {  // overflow the last k to the synonym leaf
+      write_syn_leaf = true;
+      const auto& last_e = records[j - 1];
+      auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.v, syn_leaf, sink);
+      if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
+        syn_leaf_addrs[insert_leaf_addr] = syn_addr;
+        leaf->metadata.synonym_ptr = syn_addr;
+      }
+      j = define::leafSpanSize - 1;
+    }
+    // move [i, j) => [i+1, j+1]
+    for (int k = j - 1; k >= i; -- k) records[k + 1] = records[k];
+    records[i].update(k, v);
+  }
 
   // 3. Writing and unlocking
-  write_node_and_unlock(insert_leaf_addr, leaf, sink);
+  leaf_addrs.clear();
+  std::vector<LeafNode*> leaves;
+  if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
+  if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
+  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, sink);
   return;
+}
+
+
+GlobalAddress Rolex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink) {
+  GlobalAddress syn_leaf_addr{};
+  if (!syn_leaf) {  // allocate a new synonym leaf
+    syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
+    auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    syn_leaf = new (syn_buffer) LeafNode;
+    syn_leaf.records[0].update(k, v);
+  }
+  else {  // store in the synonym leaf
+    auto& syn_records = syn_leaf->records;
+    int i;
+    for (i = 0; i < (int)define::leafSpanSize; ++ i) {
+      const auto& e = syn_records[i];
+      assert(e.key != k);
+      if (e.key == define::kkeyNull || e.key > k) break;
+    }
+    assert(i != (int)define::leafSpanSize);  // ASSERT: synonym leaf is full!!
+    int j = i;
+    while (j < (int)define::leafSpanSize && syn_records[j].key != define::kkeyNull) j ++;
+    assert(j != (int)define::leafSpanSize);  // ASSERT: synonym leaf is full!!
+    // move [i, j) => [i+1, j+1]
+    for (int k = j - 1; k >= i; -- k) syn_records[k + 1] = syn_records[k];
+    syn_records[i].update(k, v);
+  }
+  return syn_leaf_addr;
 }
 
 
@@ -228,19 +274,27 @@ re_fetch:
 }
 
 
-void Rolex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, CoroPull* sink) {
+void Rolex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   assert(leaf_addrs.size() == leaves.size());
-  memset((char*)leaves[0] + define::transLeafSize, 0, sizeof(uint64_t));  // unlock, the first one is the locked one
 
   std::vector<RdmaOpRegion> rs;
   for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     RdmaOpRegion r;
     r.source = (uint64_t)leaves[i];
     r.dest = leaf_addrs[i].to_uint64();
-    r.size = define::transLeafSize + (i ? 0 : sizeof(uint64_t));
+    r.size = define::transLeafSize;
     r.is_on_chip = false;
     rs.emplace_back(r);
   }
+  // unlock
+  RdmaOpRegion r;
+  auto lock_offset = get_unlock_info(locked_leaf_addr);
+  auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+  r.source = (uint64_t)zero_buffer;
+  r.dest = (locked_leaf_addr + lock_offset).to_uint64();
+  r.size = sizeof(uint64_t);
+  r.is_on_chip = false;
+  rs.emplace_back(r);
   dsm->write_batches_sync(rs, sink);
   return;
 }
@@ -283,7 +337,21 @@ bool Rolex::search(const Key &k, Value &v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
-  // TODO
+  // Read predict leaves and the synonmy leaves
+  auto [l, r] = rolex_cache->search_from_cache(k);
+  std::vector<GlobalAddress> leaf_addrs;
+  std::vector<LeafNode*> leaves;
+  for (int i = l; i <= r; ++ i) {
+    auto leaf_addr = get_leaf_address(i);
+    leaf_addrs.emplace_back(leaf_addr);
+    // including synonym leaves
+    if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
+      leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+    }
+  }
+  fetch_nodes(leaf_addrs, leaves, sink);
+  // read cache-miss synonmy leaves
+  
 }
 
 

@@ -72,10 +72,11 @@ private:
   GlobalAddress get_leaf_address(int leaf_idx);
 
   // low-level functions
+  GlobalAddress insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink);  // return syn_addr if allocating a new synonym leaf
   void fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink);
   void fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink);
   void write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, CoroPull* sink);
-  void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, CoroPull* sink);
+  void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
 
   // lock
   static std::pair<uint64_t, uint64_t> get_lock_info(const GlobalAddress &node_addr);
