@@ -143,7 +143,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
   fetch_nodes(leaf_addrs, _, sink);
 
-  // 2. Fine-grained locking
+  // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
   LeafNode* leaf = nullptr, syn_leaf = nullptr;
   lock_node(insert_leaf_addr, sink);
@@ -160,7 +160,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
     leaf = two_leaves.front();
     syn_leaf = two_leaves.back();
   }
-  // insert k locally
+  // 3. Insert k locally
   assert(leaf != nullptr);
   auto& records = leaf->records;
   int i;
@@ -198,7 +198,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
     records[i].update(k, v);
   }
 
-  // 3. Writing and unlocking
+  // 4. Writing and unlocking
   leaf_addrs.clear();
   std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
@@ -236,7 +236,7 @@ GlobalAddress Rolex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNod
 }
 
 
-void Rolex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink) {
+void Rolex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt) {
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
 
@@ -264,7 +264,7 @@ re_fetch:
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
   }
-  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
+  if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
       syn_leaf_addrs[leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
     }
@@ -279,8 +279,10 @@ void Rolex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs,
 
   std::vector<RdmaOpRegion> rs;
   for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
+    auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffer);
     RdmaOpRegion r;
-    r.source = (uint64_t)leaves[i];
+    r.source = (uint64_t)encoded_leaf_buffer;
     r.dest = leaf_addrs[i].to_uint64();
     r.size = define::transLeafSize;
     r.is_on_chip = false;
@@ -316,11 +318,23 @@ re_read:
   return;
 }
 
-void Rolex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, CoroPull* sink) {
+void Rolex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
-  memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
-  dsm->write_sync(encoded_leaf_buffer, leaf_addr, define::transLeafSize + sizeof(uint64_t), sink);
+
+  std::vector<RdmaOpRegion> rs(2);
+  rs[0].source = (uint64_t)encoded_leaf_buffer;
+  rs[0].dest = leaf_addr.to_uint64();
+  rs[0].size = define::transLeafSize;
+  rs[0].is_on_chip = false;
+  // unlock
+  auto lock_offset = get_unlock_info(locked_leaf_addr);
+  auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+  rs[1].source = (uint64_t)zero_buffer;
+  rs[1].dest = (locked_leaf_addr + lock_offset).to_uint64();
+  rs[1].size = sizeof(uint64_t);
+  rs[1].is_on_chip = false;
+  dsm->write_batches_sync(rs, sink);
   return;
 }
 
@@ -329,7 +343,32 @@ void Rolex::update(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
-  // TODO
+  // 1. Fetching
+  auto [ret, leaf_addr, lock_leaf_addr] = _search(k, v, sink);
+  // 2. Fine-grained locking and re-read
+  lock_node(lock_leaf_addr, sink);
+  LeafNode* leaf;
+read_another:
+  fetch_node(leaf_addr, leaf, sink);
+  // 3. Update k locally
+  assert(leaf != nullptr);
+  auto& records = leaf->records;
+  bool key_is_found = false;
+  for (auto& e : records) {
+    if (e.key == define::kkeyNull) break;
+    if (e.key == k) {
+      key_is_found = true;
+      e.update(k, v);
+    }
+  }
+  if (!key_is_found && leaf_addr == lock_leaf_addr) {  // key is moved to the synonym leaf
+    assert(leaf->metadata.synonym_ptr);
+    leaf_addr = leaf->metadata.synonym_ptr;
+    goto read_another;
+  }
+  // 4. Writing and unlock
+  write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
+  return;
 }
 
 
@@ -337,46 +376,62 @@ bool Rolex::search(const Key &k, Value &v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
-  // Read predict leaves and the synonmy leaves
+  auto [ret, _1, _2] = _search(k, v, sink);
+  return ret;
+}
+
+
+std::tuple<bool, GlobalAddress, GlobalAddress> Rolex::_search(const Key &k, Value &v, CoroPull* sink) {
+  // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> leaves;
-  for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));
-  for (int i = l; i <= r; ++ i) { // including synonym leaves
+  std::vector<GlobalAddress> locked_leaf_addrs;
+  for (int i = l; i <= r; ++ i) { // leaves
+    auto leaf_addr = get_leaf_address(i);
+    leaf_addrs.emplace_back(leaf_addr);
+    locked_leaf_addrs.emplace_back(leaf_addr);
+  }
+  for (int i = l; i <= r; ++ i) { // synonym leaves
     auto leaf_addr = get_leaf_address(i);
     if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
       leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+      locked_leaf_addrs.emplace_back(locked_leaf_addrs);
     }
   }
-  fetch_nodes(leaf_addrs, leaves, sink);
-  // read cache-miss synonmy leaves
+  fetch_nodes(leaf_addrs, leaves, sink, false);
+  // 2. Read cache-miss synonmy leaves (if exists)
   std::vector<GlobalAddress> append_leaf_addrs;
   std::vector<LeafNode*> append_leaves;
+  std::vector<GlobalAddress> append_locked_leaf_addrs;
   for (int i = 0; i <= r - l; ++ i) {
     auto leaf_addr = leaf_addrs[i];
     auto leaf = leaves[i];
     if (leaf->metadata.synonym_ptr != GlobalAddress::Null()
-        && syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
+        && syn_leaf_addrs.find(leaf_addr) == syn_leaf_addrs.end()) {
       syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
-      append_leaf_addrs.emplace_back(leaf->metadata.synonym_ptr);
+      append_leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+      append_locked_leaf_addrs.emplace_back(leaf_addr);
     }
   }
   if (!append_leaf_addrs.empty()) {
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
     leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
+    locked_leaf_addrs.insert(locked_leaf_addrs.end(), append_locked_leaf_addrs.begin(), append_locked_leaf_addrs.end());
   }
-  // search the fetched leaves
-  for (const auto& leaf : leaves) {
-    for (const auto& e : leaf->records) {
+  // 3. Search the fetched leaves
+  assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
+  for (int i = 0; i < (int)leaves.size(); ++ i) {
+    for (const auto& e : leaves[i]->records) {
       if (e.key == define::kkeyNull) break;
       if (e.key == k) {
         v = e.value;
-        return true;
+        return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i]);
       }
     }
   }
-  return false;
+  return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null());
 }
 
 
