@@ -439,11 +439,50 @@ std::tuple<bool, GlobalAddress, GlobalAddress> Rolex::_search(const Key &k, Valu
   range query
   DO NOT support coroutines currently
 */
-bool Rolex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)
+void Rolex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)
   assert(dsm->is_register());
   before_operation(nullptr);
 
-  // TODO
+  // 1. Read predict leaves and the synonmy leaves
+  auto [l, r] = rolex_cache->search_range_from_cache(from, to);
+  std::vector<GlobalAddress> leaf_addrs;
+  std::vector<LeafNode*> leaves;
+  for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // leaves
+  for (int i = l; i <= r; ++ i) { // leaves && synonym leaves
+    auto leaf_addr = get_leaf_address(i);
+    if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
+      leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+    }
+  }
+  fetch_nodes(leaf_addrs, leaves, nullptr, false);
+  // 2. Read cache-miss synonmy leaves (if exists)
+  std::vector<GlobalAddress> append_leaf_addrs;
+  std::vector<LeafNode*> append_leaves;
+  for (int i = 0; i <= r - l; ++ i) {
+    auto leaf_addr = leaf_addrs[i];
+    auto leaf = leaves[i];
+    if (leaf->metadata.synonym_ptr != GlobalAddress::Null()
+        && syn_leaf_addrs.find(leaf_addr) == syn_leaf_addrs.end()) {
+      syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
+      append_leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+    }
+  }
+  if (!append_leaf_addrs.empty()) {
+    fetch_nodes(append_leaf_addrs, append_leaves, nullptr);
+    leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
+    leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
+  }
+  // 3. Search the fetched leaves
+  assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
+  for (const auto& leaf : leaves) {
+    for (const auto& e : leaf->records) {
+      if (e.key == define::kkeyNull) break;
+      if (e.key >= from && e.key < to) {
+        ret[e.key] = e.value;
+      }
+    }
+  }
+  return;
 }
 
 

@@ -17,6 +17,8 @@
 
 #include "WRLock.h"
 
+// TODO
+#define HOPSCOTCH_LEAF_NODE
 #define TREE_ENABLE_READ_DELEGATION
 #define TREE_ENABLE_WRITE_COMBINING
 

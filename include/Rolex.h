@@ -62,7 +62,7 @@ public:
   void insert(const Key &k, Value v, CoroPull* sink = nullptr);   // NOTE: insert can also do update things if key exists
   void update(const Key &k, Value v, CoroPull* sink = nullptr);   // assert(false) if key is not found
   bool search(const Key &k, Value &v, CoroPull* sink = nullptr);  // return false if key is not found
-  bool range_query(const Key &from, const Key &to, std::map<Key, Value> &ret);
+  void range_query(const Key &from, const Key &to, std::map<Key, Value> &ret);
   void statistics();
   void clear_debug_info();
 
