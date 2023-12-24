@@ -79,6 +79,7 @@ std::uniform_int_distribution<Value> randval(define::kValueMin, define::kValueMa
 
 Rolex *rolex;
 DSM *dsm;
+std::vector<Key> load_keys;
 
 
 inline uint64_t key_hash(const Key &k) {
@@ -365,6 +366,46 @@ void save_latency(int epoch_id) {
   memset(latency, 0, sizeof(uint64_t) * MAX_APP_THREAD * MAX_CORO_NUM * LATENCY_WINDOWS);
 }
 
+void load_train_keys() {
+  printf("Starting loading pre-train keys...\n");
+
+  std::string op;
+  std::ifstream load_in(ycsb_load_path);
+  if (!load_in.is_open()) {
+    printf("Error opening load file\n");
+    assert(false);
+  }
+  Key k;
+  int cnt = 0;
+  if (!kIsStr) {  // int workloads
+    uint64_t int_k;
+    while (load_in >> op >> int_k) {
+      k = int2key(int_k);
+      assert(op == "INSERT");
+      load_keys.emplace_back(k);
+      if (++ cnt % LOAD_HEARTBEAT == 0) {
+        printf("train-keys: %d load entries loaded.\n", cnt);
+      }
+    }
+  }
+  else {  // string workloads
+    std::string str_k;
+    std::string line;
+    while (std::getline(load_in, line)) {
+      if (!line.size()) continue;
+      std::istringstream tmp(line);
+      tmp >> op >> str_k;
+      k = str2key(str_k);
+      assert(op == "INSERT");
+      load_keys.emplace_back(k);
+      if (++ cnt % LOAD_HEARTBEAT == 0) {
+        printf("train-keys: %d load entries loaded.\n", cnt);
+      }
+    }
+  }
+  printf("pre-train keys load finish\n");
+}
+
 int main(int argc, char *argv[]) {
 
   parse_args(argc, argv);
@@ -376,9 +417,10 @@ int main(int argc, char *argv[]) {
   dsm = DSM::getInstance(config);
   bindCore(kThreadCount * 2 + 1);
   dsm->registerThread();
-  std::vector<Key> load_keys;
-  // TODO load_keys
+
+  load_train_keys();
   rolex = new Rolex(dsm, load_keys);
+
   dsm->barrier("benchmark");
 
   for (int i = 0; i < kThreadCount; i ++) {

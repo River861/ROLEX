@@ -5,6 +5,14 @@
 
 #define TEST_NUM 102400  // 102400
 
+std::vector<Key> load_keys;
+
+void load_train_keys() {
+  for (uint64_t i = 1; i <= TEST_NUM; ++i) {
+    load_keys.emplace_back(int2key(i));
+  }
+}
+
 int main() {
 
   DSMConfig config;
@@ -14,9 +22,8 @@ int main() {
  
   dsm->registerThread();
 
-  std::vector<Key> load_keys;
-  // TODO load_keys
-  auto rolex = new Rolex(dsm, load_keys);
+  load_train_keys();
+  rolex = new Rolex(dsm, load_keys);
 
   Value v;
 
