@@ -143,9 +143,10 @@ inline uint16_t key2fp(const Key& key) {
   return (res << 8) + key.at(define::keyLen - 2);
 }
 
-inline uint64_t operator uint64_t(const Key &key) {
-  uint64_t res = 0;
-  for (auto a : key) res = (res << 8) + a;
+inline __uint128_t key2int128(const Key &key) {
+  __uint128_t res = 0;
+  int len = std::min((int)key.size(), 16);
+  for (int i = 0; i < len; ++ i) res = (res << 8) + key.at(i);
   return res;
 }
 
