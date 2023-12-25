@@ -194,7 +194,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       j = define::leafSpanSize - 1;
     }
     // move [i, j) => [i+1, j+1]
-    for (int k = j - 1; k >= i; -- k) records[k + 1] = records[k];
+    if (j > 0) for (int k = j - 1; k >= i; -- k) records[k + 1] = records[k];
     records[i].update(k, v);
   }
 
@@ -229,7 +229,7 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
     while (j < (int)define::leafSpanSize && syn_records[j].key != define::kkeyNull) j ++;
     assert(j != (int)define::leafSpanSize);  // ASSERT: synonym leaf is full!!
     // move [i, j) => [i+1, j+1]
-    for (int k = j - 1; k >= i; -- k) syn_records[k + 1] = syn_records[k];
+    if (j > 0) for (int k = j - 1; k >= i; -- k) syn_records[k + 1] = syn_records[k];
     syn_records[i].update(k, v);
   }
   return syn_leaf_addr;
