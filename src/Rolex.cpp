@@ -167,12 +167,19 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   bool write_leaf = false, write_syn_leaf = false;
   for (i = 0; i < (int)define::leafSpanSize; ++ i) {
     const auto& e = records[i];
-    assert(e.key != k);
+    if (e.key == k) {
+      unlock_node(insert_leaf_addr, sink);
+      return;
+    }
     if (e.key == define::kkeyNull || e.key > k) break;
   }
   if (i == (int)define::leafSpanSize) {  // insert k into the synonym leaf
     write_syn_leaf = true;
     auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
+    if (syn_addr == GlobalAddress::Max()) {  // existing key
+      unlock_node(insert_leaf_addr, sink);
+      return;
+    }
     if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
       write_leaf = true;
       syn_leaf_addrs[insert_leaf_addr] = syn_addr;
@@ -187,6 +194,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       write_syn_leaf = true;
       const auto& last_e = records[j - 1];
       auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.value, syn_leaf, sink);
+      if (syn_addr == GlobalAddress::Max()) {  // existing key
+        unlock_node(insert_leaf_addr, sink);
+        return;
+      }
       if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
         syn_leaf_addrs[insert_leaf_addr] = syn_addr;
         leaf->metadata.synonym_ptr = syn_addr;
@@ -221,7 +232,9 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
     int i;
     for (i = 0; i < (int)define::leafSpanSize; ++ i) {
       const auto& e = syn_records[i];
-      assert(e.key != k);
+      if (e.key == k) {
+        return GlobalAddress::Max();
+      }
       if (e.key == define::kkeyNull || e.key > k) break;
     }
     assert(i != (int)define::leafSpanSize);  // ASSERT: synonym leaf is full!!
