@@ -297,7 +297,7 @@ void thread_run(int id) {
   }
   else {
     /// without coro
-    rolex_index::Timer timer;
+    rolex::Timer timer;
     auto gen = new RequsetGenBench(dsm, req, req_num, 0, 0);
     auto thread_id = dsm->getMyThreadID();
 
