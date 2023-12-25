@@ -17,7 +17,6 @@
 #include <atomic>
 #include <vector>
 
-
 using leaf_alloc_t = rolex::LeafAllocator<LeafNode, sizeof(LeafNode)>;
 using model_alloc_t = rolex::ModelAllocator<Key>;
 using remote_memory_t = rolex::RemoteMemory<leaf_alloc_t, model_alloc_t>;
