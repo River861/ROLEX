@@ -51,12 +51,12 @@ enum {
 };
 
 
-class Rolex {
+class RolexIndex {
 public:
   using VerMng = VersionManager<LeafNode, LeafEntry>;
-  Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id = 0);
+  RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id = 0);
 
-  using WorkFunc = std::function<void (Rolex *, const Request&, CoroPull *)>;
+  using WorkFunc = std::function<void (RolexIndex *, const Request&, CoroPull *)>;
   void run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Request* req = nullptr, int req_num = 0);
 
   void insert(const Key &k, Value v, CoroPull* sink = nullptr);   // NOTE: insert can also do update things if key exists

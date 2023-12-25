@@ -23,7 +23,7 @@ int main() {
   dsm->registerThread();
 
   load_train_keys();
-  rolex = new Rolex(dsm, load_keys);
+  rolex = new RolexIndex(dsm, load_keys);
 
   Value v;
 

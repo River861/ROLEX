@@ -77,7 +77,7 @@ uint64_t latency_th_all[LATENCY_WINDOWS];
 std::default_random_engine e;
 std::uniform_int_distribution<Value> randval(define::kValueMin, define::kValueMax);
 
-Rolex *rolex;
+RolexIndex *rolex;
 DSM *dsm;
 std::vector<Key> load_keys;
 
@@ -138,7 +138,7 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 }
 
 
-void work_func(Rolex *rolex, const Request& r, CoroPull *sink) {
+void work_func(RolexIndex *rolex, const Request& r, CoroPull *sink) {
   if (r.req_type == SEARCH) {
     Value v;
     rolex->search(r.k, v, sink);
@@ -156,7 +156,7 @@ void work_func(Rolex *rolex, const Request& r, CoroPull *sink) {
 }
 
 
-Timer bench_timer;
+rolex_index::Timer bench_timer;
 std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
 
@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
   dsm->registerThread();
 
   load_train_keys();
-  rolex = new Rolex(dsm, load_keys);
+  rolex = new RolexIndex(dsm, load_keys);
 
   dsm->barrier("benchmark");
 

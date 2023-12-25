@@ -36,14 +36,14 @@ uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
 volatile bool need_stop = false;
 volatile bool need_clear[MAX_APP_THREAD];
 
-thread_local std::vector<CoroPush> Rolex::workers;
-thread_local CoroQueue Rolex::busy_waiting_queue;
+thread_local std::vector<CoroPush> RolexIndex::workers;
+thread_local CoroQueue RolexIndex::busy_waiting_queue;
 
 // Auxiliary structure for simplicity
-thread_local std::map<GlobalAddress, GlobalAddress> Rolex::syn_leaf_addrs;
+thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::syn_leaf_addrs;
 
 
-Rolex::Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
+RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
   assert(dsm->is_register());
   std::fill(need_clear, need_clear + MAX_APP_THREAD, false);
   clear_debug_info();
@@ -54,7 +54,7 @@ Rolex::Rolex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm
 }
 
 
-inline void Rolex::before_operation(CoroPull* sink) {
+inline void RolexIndex::before_operation(CoroPull* sink) {
   auto tid = dsm->getMyThreadID();
   if (need_clear[tid]) {
     cache_miss[tid]              = 0;
@@ -74,12 +74,12 @@ inline void Rolex::before_operation(CoroPull* sink) {
 }
 
 
-inline GlobalAddress Rolex::get_leaf_address(int leaf_idx) {
+inline GlobalAddress RolexIndex::get_leaf_address(int leaf_idx) {
   return GlobalAddress{leaf_idx % MEMORY_NODE_NUM, define::kLeafRegionStartOffset + (leaf_idx / MEMORY_NODE_NUM) * define::allocationLeafSize};
 }
 
 
-inline std::pair<uint64_t, uint64_t> Rolex::get_lock_info(const GlobalAddress &node_addr) {
+inline std::pair<uint64_t, uint64_t> RolexIndex::get_lock_info(const GlobalAddress &node_addr) {
   auto lock_offset = get_unlock_info(node_addr);
 
   uint64_t leaf_lock_cas_offset     = ROUND_DOWN(lock_offset, 3);
@@ -88,13 +88,13 @@ inline std::pair<uint64_t, uint64_t> Rolex::get_lock_info(const GlobalAddress &n
 }
 
 
-inline uint64_t Rolex::get_unlock_info(const GlobalAddress &node_addr) {
+inline uint64_t RolexIndex::get_unlock_info(const GlobalAddress &node_addr) {
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(LeafNode), define::versionSize);
   return leaf_lock_offset;
 }
 
 
-void Rolex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
+void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   auto [lock_cas_offset, lock_mask] = get_lock_info(node_addr);
   auto cas_buffer = (dsm->get_rbuf(sink)).get_cas_buffer();
 
@@ -114,7 +114,7 @@ re_acquire:
   return;
 }
 
-void Rolex::unlock_node(const GlobalAddress &node_addr, CoroPull* sink, bool async) {
+void RolexIndex::unlock_node(const GlobalAddress &node_addr, CoroPull* sink, bool async) {
   auto lock_offset = get_unlock_info(node_addr);
   auto zero_buffer = (dsm->get_rbuf(sink)).get_zero_8_byte();
 
@@ -132,7 +132,7 @@ void Rolex::unlock_node(const GlobalAddress &node_addr, CoroPull* sink, bool asy
 }
 
 
-void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
+void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
@@ -208,7 +208,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
 }
 
 
-GlobalAddress Rolex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink) {
+GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink) {
   GlobalAddress syn_leaf_addr{};
   if (!syn_leaf) {  // allocate a new synonym leaf
     syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
@@ -236,7 +236,7 @@ GlobalAddress Rolex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNod
 }
 
 
-void Rolex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt) {
+void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt) {
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
 
@@ -274,7 +274,7 @@ re_fetch:
 }
 
 
-void Rolex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
+void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   assert(leaf_addrs.size() == leaves.size());
 
   std::vector<RdmaOpRegion> rs;
@@ -302,7 +302,7 @@ void Rolex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs,
 }
 
 
-void Rolex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink) {
+void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink) {
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   leaf = (LeafNode*) leaf_buffer;
@@ -318,7 +318,7 @@ re_read:
   return;
 }
 
-void Rolex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
+void RolexIndex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
 
@@ -339,7 +339,7 @@ void Rolex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf
 }
 
 
-void Rolex::update(const Key &k, Value v, CoroPull* sink) {
+void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
@@ -372,7 +372,7 @@ read_another:
 }
 
 
-bool Rolex::search(const Key &k, Value &v, CoroPull* sink) {
+bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
@@ -381,7 +381,7 @@ bool Rolex::search(const Key &k, Value &v, CoroPull* sink) {
 }
 
 
-std::tuple<bool, GlobalAddress, GlobalAddress> Rolex::_search(const Key &k, Value &v, CoroPull* sink) {
+std::tuple<bool, GlobalAddress, GlobalAddress> RolexIndex::_search(const Key &k, Value &v, CoroPull* sink) {
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
   std::vector<GlobalAddress> leaf_addrs;
@@ -439,7 +439,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress> Rolex::_search(const Key &k, Valu
   range query
   DO NOT support coroutines currently
 */
-void Rolex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)
+void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)
   assert(dsm->is_register());
   before_operation(nullptr);
 
@@ -486,7 +486,7 @@ void Rolex::range_query(const Key &from, const Key &to, std::map<Key, Value> &re
 }
 
 
-void Rolex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Request* req, int req_num) {
+void RolexIndex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Request* req, int req_num) {
   assert(coro_cnt <= MAX_CORO_NUM);
   // define coroutines
   for (int i = 0; i < coro_cnt; ++i) {
@@ -514,8 +514,8 @@ void Rolex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Re
 }
 
 
-void Rolex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
-  rolex::Timer coro_timer;
+void RolexIndex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
+  rolex_index::Timer coro_timer;
   auto thread_id = dsm->getMyThreadID();
 
   while (!need_stop) {
@@ -535,11 +535,11 @@ void Rolex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
   }
 }
 
-void Rolex::statistics() {
+void RolexIndex::statistics() {
   rolex_cache->statistics();
 }
 
-void Rolex::clear_debug_info() {
+void RolexIndex::clear_debug_info() {
   memset(cache_miss, 0, sizeof(double) * MAX_APP_THREAD);
   memset(cache_hit, 0, sizeof(double) * MAX_APP_THREAD);
   memset(lock_fail, 0, sizeof(uint64_t) * MAX_APP_THREAD);

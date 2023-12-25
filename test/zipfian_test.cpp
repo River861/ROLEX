@@ -55,7 +55,7 @@ extern volatile bool need_clear[MAX_APP_THREAD];
 extern uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
 uint64_t latency_th_all[LATENCY_WINDOWS];
 
-Rolex *rolex;
+RolexIndex *rolex;
 DSM *dsm;
 std::vector<Key> load_keys;
 
@@ -132,7 +132,7 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 }
 
 
-void work_func(Rolex *rolex, const Request& r, CoroPull* sink) {
+void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
   if (r.req_type == SEARCH) {
     Value v;
     rolex->search(r.k, v, sink);
@@ -142,7 +142,7 @@ void work_func(Rolex *rolex, const Request& r, CoroPull* sink) {
 }
 
 
-Timer bench_timer;
+rolex_index::Timer bench_timer;
 std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
 
@@ -265,40 +265,8 @@ void save_latency(int epoch_id) {
 
 void load_train_keys() {
   printf("Starting loading pre-train keys...\n");
-
-  std::string op;
-  std::ifstream load_in(ycsb_load_path);
-  if (!load_in.is_open()) {
-    printf("Error opening load file\n");
-    assert(false);
-  }
-  Key k;
-  int cnt = 0;
-  if (!kIsStr) {  // int workloads
-    uint64_t int_k;
-    while (load_in >> op >> int_k) {
-      k = int2key(int_k);
-      assert(op == "INSERT");
-      load_keys.emplace_back(k);
-      if (++ cnt % LOAD_HEARTBEAT == 0) {
-        printf("train-keys: %d load entries loaded.\n", cnt);
-      }
-    }
-  }
-  else {  // string workloads
-    std::string str_k;
-    std::string line;
-    while (std::getline(load_in, line)) {
-      if (!line.size()) continue;
-      std::istringstream tmp(line);
-      tmp >> op >> str_k;
-      k = str2key(str_k);
-      assert(op == "INSERT");
-      load_keys.emplace_back(k);
-      if (++ cnt % LOAD_HEARTBEAT == 0) {
-        printf("train-keys: %d load entries loaded.\n", cnt);
-      }
-    }
+  for (uint64_t i = define::kKeyMin; i <= define::kKeyMax; ++ i) {
+    load_keys.emplace_back(to_key(i));
   }
   printf("pre-train keys load finish\n");
 }
@@ -316,7 +284,7 @@ int main(int argc, char *argv[]) {
   bindCore(kThreadCount * 2 + 1);
 
   load_train_keys();
-  rolex = new Rolex(dsm, load_keys);
+  rolex = new RolexIndex(dsm, load_keys);
 
   dsm->barrier("benchmark");
 
