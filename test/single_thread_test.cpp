@@ -22,15 +22,15 @@ int main() {
  
   dsm->registerThread();
 
-  load_train_keys();
-  RolexIndex* rolex_index = new RolexIndex(dsm, train_keys);
-
-  Value v;
-
   if (dsm->getMyNodeID() != 0) {
     dsm->barrier("fin");
     return 0;
   }
+
+  load_train_keys();
+  RolexIndex* rolex_index = new RolexIndex(dsm, train_keys);
+
+  Value v;
 
   // test insert
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
