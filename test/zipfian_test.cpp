@@ -203,7 +203,7 @@ void thread_run(int id) {
   rolex_index->run_coroutine(gen_func, work_func, kCoroCnt);
 #else
   /// without coro
-  Timer timer;
+  rolex::Timer timer;
   auto gen = new RequsetGenBench(dsm, 0, 0);
   auto thread_id = dsm->getMyThreadID();
 
