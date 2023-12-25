@@ -135,9 +135,9 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
   if (r.req_type == SEARCH) {
     Value v;
-    rolex->search(r.k, v, sink);
+    rolex_index->search(r.k, v, sink);
   } else {
-    rolex->insert(r.k, r.v, sink);
+    rolex_index->insert(r.k, r.v, sink);
   }
 }
 
@@ -156,7 +156,7 @@ void thread_load(int id) {
   uint64_t end_warm_key = kWarmRatio * kKeySpace;
   for (uint64_t i = 0; i < end_warm_key; ++i) {
     if (i % all_loader_thread == loader_id) {
-      rolex->insert(to_key(i), i * 2);
+      rolex_index->insert(to_key(i), i * 2);
     }
   }
   printf("loader %lu load finish\n", loader_id);
@@ -200,7 +200,7 @@ void thread_run(int id) {
 
 
 #ifdef USE_CORO
-  rolex->run_coroutine(gen_func, work_func, kCoroCnt);
+  rolex_index->run_coroutine(gen_func, work_func, kCoroCnt);
 #else
   /// without coro
   Timer timer;
@@ -391,7 +391,7 @@ int main(int argc, char *argv[]) {
     th[i].join();
     printf("Thread %d joined.\n", i);
   }
-  rolex->statistics();
+  rolex_index->statistics();
   dsm->barrier("fin");
 
   return 0;

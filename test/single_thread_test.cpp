@@ -35,23 +35,23 @@ int main() {
   // test insert
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
     // printf("inserting %lu...\n", i);
-    rolex->insert(int2key(i), i * 2);
+    rolex_index->insert(int2key(i), i * 2);
   }
   printf("insert passed.\n");
 
   // test update
   for (uint64_t i = TEST_NUM; i >= 1; --i) {
     // printf("updating %lu...\n", i);
-    rolex->update(int2key(i), i * 3);
+    rolex_index->update(int2key(i), i * 3);
   }
   printf("update passed.\n");
 
   // test search
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
-    assert(!rolex->search(int2key(TEST_NUM + i), v));
+    assert(!rolex_index->search(int2key(TEST_NUM + i), v));
   }
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
-    auto res = rolex->search(int2key(i), v);
+    auto res = rolex_index->search(int2key(i), v);
     // std::cout << "search result:  " << (bool)res << " v: " << v << " ans: " << i * 3 << std::endl;
     assert(res && v == i * 3);
     // assert(res && v == i * 2);
@@ -61,7 +61,7 @@ int main() {
   // test scan
   std::map<Key, Value> ret;
   uint64_t from = 1, to = 10240;
-  rolex->range_query(int2key(from), int2key(to), ret);
+  rolex_index->range_query(int2key(from), int2key(to), ret);
   for (uint64_t j = from; j < to; ++ j) assert(ret[int2key(j)] == j * 3);
   printf("range query passed.\n");
 

@@ -141,17 +141,17 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 void work_func(RolexIndex *rolex, const Request& r, CoroPull *sink) {
   if (r.req_type == SEARCH) {
     Value v;
-    rolex->search(r.k, v, sink);
+    rolex_index->search(r.k, v, sink);
   }
   else if (r.req_type == INSERT) {
-    rolex->insert(r.k, r.v, sink);
+    rolex_index->insert(r.k, r.v, sink);
   }
   else if (r.req_type == UPDATE) {
-    rolex->update(r.k, r.v, sink);
+    rolex_index->update(r.k, r.v, sink);
   }
   else {
     std::map<Key, Value> ret;
-    rolex->range_query(r.k, r.k + r.range_size, ret);
+    rolex_index->range_query(r.k, r.k + r.range_size, ret);
   }
 }
 

@@ -114,7 +114,7 @@ void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
     Value v;
     // 3. check existed key search correctness
     search_cnt ++;
-    if(rolex->search(r.k, v, sink)) {
+    if(rolex_index->search(r.k, v, sink)) {
       auto int_k = key2int(r.k);
       assert(int_k != 0 && v % int_k == 0);
     }
@@ -126,7 +126,7 @@ void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
   }
   else if (r.req_type == SCAN) {
     std::map<Key, Value> ret;
-    rolex->range_query(r.k, r.k + fix_range_size, ret);
+    rolex_index->range_query(r.k, r.k + fix_range_size, ret);
     for (const auto& p : ret) {
       auto int_k = key2int(p.first);
       assert(int_k != 0 && p.second % int_k == 0);
@@ -134,14 +134,14 @@ void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
   }
   else {
     Value v;
-    if (rolex->search(r.k, v, sink)) {
-      rolex->update(r.k, r.v, sink);
+    if (rolex_index->search(r.k, v, sink)) {
+      rolex_index->update(r.k, r.v, sink);
     }
     else {
-      rolex->insert(r.k, r.v, sink);
+      rolex_index->insert(r.k, r.v, sink);
     }
     // 5. check insert correctness
-    assert(rolex->search(r.k, v, sink));  // no delete
+    assert(rolex_index->search(r.k, v, sink));  // no delete
     auto int_k = key2int(r.k);
     assert(int_k != 0 && v % int_k == 0);
   }
@@ -149,19 +149,19 @@ void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
   if (r.req_type == SEARCH) {
     Value v;
     search_cnt ++;
-    if(!rolex->search(r.k, v, sink)) search_not_found ++;
+    if(!rolex_index->search(r.k, v, sink)) search_not_found ++;
   }
   else if (r.req_type == SCAN) {
     std::map<Key, Value> ret;
-    rolex->range_query(r.k, r.k + fix_range_size, ret);
+    rolex_index->range_query(r.k, r.k + fix_range_size, ret);
   }
   else {
     Value v;
     if (load_keys.find(r.k) != load_keys.end()) {
-      rolex->update(r.k, r.v, sink);
+      rolex_index->update(r.k, r.v, sink);
     }
     else {
-      rolex->insert(r.k, r.v, sink);
+      rolex_index->insert(r.k, r.v, sink);
     }
   }
 #endif
@@ -192,7 +192,7 @@ void thread_run(int id) {
   for (uint64_t i = 0; i < end_warm_key; ++ i) {
     if (i % all_thread == my_id) {
       if (i % LOAD_HEARTBEAT == 0) printf("[thread %lu] end_warm_key=%lu, all_thread=%lu, loading %lu...\n", my_id, end_warm_key, all_thread, i);
-      rolex->insert(to_key(i), key2int(to_key(i)) * 2);
+      rolex_idx->insert(to_key(i), key2int(to_key(i)) * 2);
     }
   }
 
@@ -217,7 +217,7 @@ void thread_run(int id) {
   for (uint64_t i = 1; i < end_warm_key; ++i) {
     if (i % all_thread == my_id) {
       Value v;
-      auto res = rolex->search(to_key(i), v);
+      auto res = rolex_index->search(to_key(i), v);
       assert(res && v == key2int(to_key(i)) * 2);
     }
   }
@@ -242,7 +242,7 @@ void thread_run(int id) {
 
 #ifdef USE_CORO
   // benchmark correctness test
-  rolex->run_coroutine(gen_func, work_func, kCoroCnt);
+  rolex_index->run_coroutine(gen_func, work_func, kCoroCnt);
 #else
   /// without coro
   Timer timer;
@@ -440,7 +440,7 @@ int main(int argc, char *argv[]) {
     th[i].join();
     printf("Thread %d joined.\n", i);
   }
-  rolex->statistics();
+  rolex_index->statistics();
   dsm->barrier("fin");
 
   return 0;
