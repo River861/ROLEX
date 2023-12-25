@@ -75,7 +75,7 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
 
 
 inline GlobalAddress RolexIndex::get_leaf_address(int leaf_idx) {
-  return GlobalAddress{leaf_idx % MEMORY_NODE_NUM, define::kLeafRegionStartOffset + (leaf_idx / MEMORY_NODE_NUM) * define::allocationLeafSize};
+  return GlobalAddress{leaf_idx % MEMORY_NODE_NUM, define::kLeafRegionStartOffset + (leaf_idx / MEMORY_NODE_NUM) * ROUND_UP(define::allocationLeafSize, 3)};
 }
 
 
