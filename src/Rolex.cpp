@@ -396,7 +396,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress> Rolex::_search(const Key &k, Valu
     auto leaf_addr = get_leaf_address(i);
     if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
       leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
-      locked_leaf_addrs.emplace_back(locked_leaf_addrs);
+      locked_leaf_addrs.emplace_back(leaf_addr);
     }
   }
   fetch_nodes(leaf_addrs, leaves, sink, false);
