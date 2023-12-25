@@ -82,32 +82,17 @@ public:
                     size_t size, leaf_alloc_t* alloc) : model(slope, intercept), capacity(size), ltable()
   {
     // modified by lxc: 不需要往本地内存里写入kv数据
-    static int cnt = 0;
     assert(size>0);
     ltable.train_emplace_back(716);
     for (int i = 0; i < (size / leaf_t::max_slot() + (size % leaf_t::max_slot() ? 1 : 0)); ++ i) {
       ltable.train_emplace_back(716);
     }
-    // static int cnt = 0;
-    // assert(size>0);
-    // auto res = alloc->fetch_new_leaf();
-    // ltable.train_emplace_back(res.second);
-    // leaf_t* cur_leaf = reinterpret_cast<leaf_t*>(res.first);
-    // for(int i=0; i<size; i++) {
-    //   if(cur_leaf->isfull()){
-    //     res = alloc->fetch_new_leaf();
-    //     ltable.train_emplace_back(res.second);
-    //     cur_leaf = reinterpret_cast<leaf_t*>(res.first);
-    //   }
-    //   cur_leaf->insert_not_full(*(keys_begin+i), *(vals_begin+i));
-    // }
   }
   // explicit SubModel(double slope, double intercept,
   //                   const typename std::vector<K>::const_iterator &keys_begin,
   //                   const typename std::vector<V>::const_iterator &vals_begin, 
   //                   size_t size, leaf_alloc_t* alloc) : model(slope, intercept), capacity(size), ltable()
   // {
-  //   static int cnt = 0;
   //   assert(size>0);
   //   auto res = alloc->fetch_new_leaf();
   //   ltable.train_emplace_back(res.second);
