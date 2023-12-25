@@ -10,7 +10,7 @@ private:
   // async, buffer safty
   static const int kCasBufferCnt    = 64;
   static const int kPageBufferCnt   = 64;
-  static const int kLeafBufferCnt   = 64;
+  static const int kLeafBufferCnt   = 256;
   static const int kSegmentBufferCnt= 64;
   static const int kHeaderBufferCnt = 32;
   static const int kEntryBufferCnt  = 32;
