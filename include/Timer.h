@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <time.h>
 
-namespace rolex_index {
+namespace rolex {
 
 class Timer {
 public:

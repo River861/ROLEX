@@ -77,9 +77,9 @@ uint64_t latency_th_all[LATENCY_WINDOWS];
 std::default_random_engine e;
 std::uniform_int_distribution<Value> randval(define::kValueMin, define::kValueMax);
 
-RolexIndex *rolex;
+RolexIndex *rolex_index;
 DSM *dsm;
-std::vector<Key> load_keys;
+std::vector<Key> train_keys;
 
 
 inline uint64_t key_hash(const Key &k) {
@@ -156,7 +156,7 @@ void work_func(RolexIndex *rolex, const Request& r, CoroPull *sink) {
 }
 
 
-rolex_index::Timer bench_timer;
+rolex::Timer bench_timer;
 std::atomic<int64_t> warmup_cnt{0};
 std::atomic_bool ready{false};
 
@@ -181,7 +181,7 @@ void thread_load(int id) {
     while (load_in >> op >> int_k) {
       k = int2key(int_k);
       assert(op == "INSERT");
-      rolex->insert(k, randval(e));
+      rolex_index->insert(k, randval(e));
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("thread %lu: %d load entries loaded.\n", loader_id, cnt);
       }
@@ -196,7 +196,7 @@ void thread_load(int id) {
       tmp >> op >> str_k;
       k = str2key(str_k);
       assert(op == "INSERT");
-      rolex->insert(k, randval(e));
+      rolex_index->insert(k, randval(e));
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("thread %lu: %d load entries loaded.\n", loader_id, cnt);
       }
@@ -293,7 +293,7 @@ void thread_run(int id) {
 
   // 3. start ycsb test
   if (!kIsScan && kUseCoro) {
-    rolex->run_coroutine(gen_func, work_func, kCoroCnt, req, req_num);
+    rolex_index->run_coroutine(gen_func, work_func, kCoroCnt, req, req_num);
   }
   else {
     /// without coro
@@ -305,7 +305,7 @@ void thread_run(int id) {
       auto r = gen->next();
 
       timer.begin();
-      work_func(rolex, r, nullptr);
+      work_func(rolex_index, r, nullptr);
       auto us_10 = timer.end() / 100;
 
       if (us_10 >= LATENCY_WINDOWS) {
@@ -382,7 +382,7 @@ void load_train_keys() {
     while (load_in >> op >> int_k) {
       k = int2key(int_k);
       assert(op == "INSERT");
-      load_keys.emplace_back(k);
+      train_keys.emplace_back(k);
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("train-keys: %d load entries loaded.\n", cnt);
       }
@@ -397,7 +397,7 @@ void load_train_keys() {
       tmp >> op >> str_k;
       k = str2key(str_k);
       assert(op == "INSERT");
-      load_keys.emplace_back(k);
+      train_keys.emplace_back(k);
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("train-keys: %d load entries loaded.\n", cnt);
       }
@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
   dsm->registerThread();
 
   load_train_keys();
-  rolex = new RolexIndex(dsm, load_keys);
+  rolex_index = new RolexIndex(dsm, load_keys);
 
   dsm->barrier("benchmark");
 
@@ -536,7 +536,7 @@ int main(int argc, char *argv[]) {
     th[i].join();
     printf("Thread %d joined.\n", i);
   }
-  rolex->statistics();
+  rolex_index->statistics();
   dsm->barrier("fin");
 
   return 0;

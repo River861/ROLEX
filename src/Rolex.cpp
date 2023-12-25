@@ -515,7 +515,7 @@ void RolexIndex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cn
 
 
 void RolexIndex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
-  rolex_index::Timer coro_timer;
+  rolex::Timer coro_timer;
   auto thread_id = dsm->getMyThreadID();
 
   while (!need_stop) {

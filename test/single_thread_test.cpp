@@ -5,11 +5,11 @@
 
 #define TEST_NUM 102400  // 102400
 
-std::vector<Key> load_keys;
+std::vector<Key> train_keys;
 
 void load_train_keys() {
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
-    load_keys.emplace_back(int2key(i));
+    train_keys.emplace_back(int2key(i));
   }
 }
 

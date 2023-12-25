@@ -59,9 +59,9 @@ std::atomic<uint64_t> search_cnt{0};
 std::default_random_engine e;
 std::uniform_int_distribution<Value> randmultiple(1UL, define::kValueMax / define::kKeyMax);
 
-RolexIndex *rolex;
+RolexIndex *rolex_index;
 DSM *dsm;
-std::vector<Key> load_keys;
+std::vector<Key> train_keys;
 
 
 inline Key to_key(uint64_t k) {
@@ -168,7 +168,7 @@ void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
 }
 
 
-rolex_index::Timer bench_timer;
+rolex::Timer bench_timer;
 std::atomic_int warmup_cnt{0}, loaddone_cnt{0}, maindone_cnt{0};
 std::atomic_bool ready{false};
 
@@ -311,7 +311,7 @@ void save_latency(int epoch_id) {
 void load_train_keys() {
   printf("Starting loading pre-train keys...\n");
   for (uint64_t i = define::kKeyMin; i <= define::kKeyMax; ++ i) {
-    load_keys.emplace_back(to_key(i));
+    train_keys.emplace_back(to_key(i));
   }
   printf("pre-train keys load finish\n");
 }
