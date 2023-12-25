@@ -58,7 +58,7 @@ set(COMMON_SRC ${PROJECT_SOURCE_DIR}/src)
 
 #Used by both server and clients
 file(GLOB_RECURSE COMMON_FILE ${COMMON_SRC}/*.cpp)
-add_library(ROLEX_dev STATIC ${COMMON_FILE})
+add_library(ROLEX_dev STATIC ${COMMON_FILE} ${INCLUDE_BASE}/rolex_libs/deps/r2/src/logging.cc)
 link_libraries(ROLEX_dev)
 
 #Test codes

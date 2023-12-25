@@ -11,7 +11,6 @@
 #include "rolex_libs/rolex/rolex.hpp"
 #include "rolex_libs/rolex/learned_cache.hpp"
 #include "rolex_libs/rolex/remote_memory.hh"
-#include "rolex_libs/rolex/remote_memory.hh"
 
 #include <queue>
 #include <atomic>
