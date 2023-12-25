@@ -143,7 +143,7 @@ inline uint16_t key2fp(const Key& key) {
   return (res << 8) + key.at(define::keyLen - 2);
 }
 
-inline uint64_t operator uint64_t(const Key &key) const {
+inline uint64_t operator uint64_t(const Key &key) {
   uint64_t res = 0;
   for (auto a : key) res = (res << 8) + a;
   return res;
