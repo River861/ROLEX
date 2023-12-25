@@ -41,7 +41,7 @@ const u32 kSynonymMax = 128;
  * @brief Help functions for encode and decode.
  *          bits set: [1, 7, 8, 48] = [lock, leaf region, synonym leaf, leaves]
  */
-auto encode(const u64& num, const u8& synonym_leaf = 0, const u8& leaf_region = 0) -> u64 {
+inline auto encode(const u64& num, const u8& synonym_leaf = 0, const u8& leaf_region = 0) -> u64 {
   assert(num < (1L << kAddrBit) && leaf_region < (1L<<7));
   auto temp = (u64)leaf_region<<kAddrBit;
   temp |= (u64)synonym_leaf<<kLeafBit;
