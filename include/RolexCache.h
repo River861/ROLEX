@@ -68,7 +68,7 @@ inline std::tuple<int, int, int> RolexCache::search_from_cache_for_insert(const 
   auto key = key2int128(k);
   auto [l, r, leaf_idx_offset, capacity_offset] = rolex_model->get_leaf_range(key);
   int global_key_idx = std::lower_bound(int128_keys.begin(), int128_keys.end(), key) - int128_keys.begin();
-  int insert_idx = l + (global_key_idx - capacity_offset) / define::leafSpanSize;
+  int insert_idx = (global_key_idx - capacity_offset) / define::leafSpanSize;
   assert(insert_idx >= l && insert_idx <= r);
   return std::make_tuple(leaf_idx_offset + l, leaf_idx_offset + r, leaf_idx_offset + insert_idx);
 }
