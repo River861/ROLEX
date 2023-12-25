@@ -5,6 +5,8 @@
 #include <cstdio>
 #include <time.h>
 
+namespace rolex {
+
 class Timer {
 public:
   Timer() = default;
@@ -56,6 +58,8 @@ private:
   timespec s, e;
   uint64_t loop;
   uint64_t ns;
+};
+
 };
 
 #endif // _TIMER_H_

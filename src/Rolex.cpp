@@ -186,7 +186,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
     if (j == (int)define::leafSpanSize) {  // overflow the last k to the synonym leaf
       write_syn_leaf = true;
       const auto& last_e = records[j - 1];
-      auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.v, syn_leaf, sink);
+      auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.value, syn_leaf, sink);
       if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
         syn_leaf_addrs[insert_leaf_addr] = syn_addr;
         leaf->metadata.synonym_ptr = syn_addr;
@@ -214,7 +214,7 @@ GlobalAddress Rolex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNod
     syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
     auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     syn_leaf = new (syn_buffer) LeafNode;
-    syn_leaf.records[0].update(k, v);
+    syn_leaf->records[0].update(k, v);
   }
   else {  // store in the synonym leaf
     auto& syn_records = syn_leaf->records;
@@ -362,7 +362,7 @@ read_another:
     }
   }
   if (!key_is_found && leaf_addr == lock_leaf_addr) {  // key is moved to the synonym leaf
-    assert(leaf->metadata.synonym_ptr);
+    assert(leaf->metadata.synonym_ptr != GlobalAddress::Null());
     leaf_addr = leaf->metadata.synonym_ptr;
     goto read_another;
   }
@@ -473,7 +473,7 @@ void Rolex::range_query(const Key &from, const Key &to, std::map<Key, Value> &re
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
   }
   // 3. Search the fetched leaves
-  assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
+  assert(leaf_addrs.size() == leaves.size());
   for (const auto& leaf : leaves) {
     for (const auto& e : leaf->records) {
       if (e.key == define::kkeyNull) break;
@@ -515,7 +515,7 @@ void Rolex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Re
 
 
 void Rolex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
-  Timer coro_timer;
+  rolex::Timer coro_timer;
   auto thread_id = dsm->getMyThreadID();
 
   while (!need_stop) {
