@@ -265,7 +265,7 @@ void save_latency(int epoch_id) {
 
 void load_train_keys() {
   printf("Starting loading pre-train keys...\n");
-  for (uint64_t i = define::kKeyMin; i <= define::kKeyMax; ++ i) {
+  for (uint64_t i = define::kKeyMin; i < kKeySpace; ++ i) {
     train_keys.emplace_back(to_key(i));
   }
   printf("pre-train keys load finish\n");
