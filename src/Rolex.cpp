@@ -80,7 +80,7 @@ inline GlobalAddress Rolex::get_leaf_address(int leaf_idx) {
 
 
 inline std::pair<uint64_t, uint64_t> Rolex::get_lock_info(const GlobalAddress &node_addr) {
-  auto lock_offset = get_unlock_info(node_addr, is_leaf);
+  auto lock_offset = get_unlock_info(node_addr);
 
   uint64_t leaf_lock_cas_offset     = ROUND_DOWN(lock_offset, 3);
   uint64_t leaf_lock_mask           = 1UL << ((lock_offset - leaf_lock_cas_offset) * 8UL);
@@ -90,7 +90,7 @@ inline std::pair<uint64_t, uint64_t> Rolex::get_lock_info(const GlobalAddress &n
 
 inline uint64_t Rolex::get_unlock_info(const GlobalAddress &node_addr) {
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(LeafNode), define::versionSize);
-  return leaf_lock_offset + get_hashed_remote_lock_index(node_addr) * 8UL;
+  return leaf_lock_offset;
 }
 
 
@@ -145,7 +145,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
 
   // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
-  LeafNode* leaf = nullptr, syn_leaf = nullptr;
+  LeafNode* leaf = (LeafNode*)nullptr, syn_leaf = (LeafNode*)nullptr;
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {

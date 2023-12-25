@@ -25,14 +25,19 @@ public:
   explicit Rolex(remote_memory_t *RM)
       : RM(RM), model_keys(), models() { assert(RM->leaf_allocator() && RM->model_allocator()); }
 
-  explicit Rolex(remote_memory_t *RM, const std::vector<K> &keys, const std::vector<V> &vals)  // 这个应该是MN上的index，直接从MN上load数据，然后CN调用read_remote_index来cache它？
+  explicit Rolex(remote_memory_t *RM, const std::vector<K> &keys)  // modified by lxc
       : RM(RM), model_keys(), models() {
     assert(RM->leaf_allocator() && RM->model_allocator());
     // modified by lxc
     leaf_idx_offsets.emplace_back(0);
     capacity_offsets.emplace_back(0);
-    train(keys, vals);
+    train(keys);
   }
+  // explicit Rolex(remote_memory_t *RM, const std::vector<K> &keys, const std::vector<V> &vals)
+  //     : RM(RM), model_keys(), models() {
+  //   assert(RM->leaf_allocator() && RM->model_allocator());
+  //   train(keys, vals);
+  // }
 
   // ====================== functions for serialization and deserialization =================
   // Alloc will not used on compute nodes
@@ -107,9 +112,9 @@ public:
    * @brief Training models, Note: the data are stored in submodels 
    *                and the model structure are constructed with model_keys
    */
-  void train(const std::vector<K> &keys, const std::vector<V> &vals)
+  void train(const std::vector<K> &keys)  // modified by lxc
   {
-    assert(keys.size() == vals.size());
+    // assert(keys.size() == vals.size());
     if(keys.size()==0) return;
     LOG(2) << "Training data: "<<keys.size()<<", Epsilon: "<<Epsilon;
 
@@ -118,7 +123,7 @@ public:
     size_t pos=0;
     opt->add_point(p, pos);
     auto k_iter = keys.begin();
-    auto v_iter = vals.begin();
+    // auto v_iter = vals.begin();  // modified by lxc
     for(int i=1; i<keys.size(); i++) {
       K next_p = keys[i];
       if (next_p == p){
@@ -130,9 +135,10 @@ public:
       if(!opt->add_point(p, pos)) {
         auto cs = opt->get_segment();
         auto[cs_slope, cs_intercept] = cs.get_slope_intercept();
-        append_model(cs_slope, cs_intercept, k_iter, v_iter, pos);
+        // append_model(cs_slope, cs_intercept, k_iter, v_iter, pos);
+        append_model(cs_slope, cs_intercept, k_iter, pos);  // modified by lxc
         k_iter += pos;
-        v_iter += pos;
+        // v_iter += pos;  // modified by lxc
         pos=0;
         opt = new OptimalPLR(Epsilon-1);
         opt->add_point(p, pos);
@@ -140,7 +146,8 @@ public:
     }
     auto cs = opt->get_segment();
     auto[cs_slope, cs_intercept] = cs.get_slope_intercept();
-    append_model(cs_slope, cs_intercept, k_iter, v_iter, ++pos);
+    // append_model(cs_slope, cs_intercept, k_iter, v_iter, ++pos);
+    append_model(cs_slope, cs_intercept, k_iter, ++pos);  // modified by lxc
 
     u64 total_size = models.size();
     LOG(4) << "Training models: "<<total_size<<" used leaves: "<<this->RM->leaf_allocator()->used_num();
@@ -155,7 +162,7 @@ public:
     const usize MB = 1024 * 1024;
     for (const auto& m : models) consumed_cache_size += sizeof(m);
     for (const auto& k : model_keys) consumed_cache_size += sizeof(k);
-    return (double)consumed_cache_size / MB
+    return (double)consumed_cache_size / MB;
   }
 
   auto get_leaf_range(const K& key) -> std::tuple<int, int, int, int> {  // modified by lxc, return [l, r]
@@ -215,13 +222,13 @@ private:
    */
   void append_model(double slope, double intercept,
                      const typename std::vector<K>::const_iterator &keys_begin,
-                     const typename std::vector<V>::const_iterator &vals_begin, 
+                    //  const typename std::vector<V>::const_iterator &vals_begin,  // modified by lxc
                      size_t size) 
   {
     ASSERT(this->RM->leaf_allocator()) << "Leaf allocator in the model is nullptr";
     auto key = *(keys_begin+size-1);
     model_keys.push_back(key);
-    model_t model(slope, intercept, keys_begin, vals_begin, size, this->RM->leaf_allocator());
+    model_t model(slope, intercept, keys_begin, size, this->RM->leaf_allocator());  // modified by lxc
     //models.emplace_back(slope, intercept, keys_begin, vals_begin, size, this->RM->leaf_allocator());
     models.emplace_back(model);
     // modified by lxc

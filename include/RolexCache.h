@@ -54,14 +54,14 @@ inline RolexCache::RolexCache(DSM* dsm, const std::vector<Key> &load_keys) : dsm
   rolex::RCtrl* ctrl = new RCtrl(define::fakePort);
   rolex::RM_config conf(ctrl, define::modelRegionSize, define::fakeLeafRegionSize, define::fakeRegLeafRegion);
   remote_memory_t* RM = new remote_memory_t(conf);
-  rolex_model = new rolex_t(RM, int128_keys, int128_keys);
+  rolex_model = new rolex_t(RM, int128_keys);
 }
 
 
 inline std::pair<int, int> RolexCache::search_from_cache(const Key &k) {  // [l, r]
   auto key = key2int128(k);
   auto [l, r, leaf_idx_offset, _] = rolex_model->get_leaf_range(key);
-  return std::make_tuple(leaf_idx_offset + l, leaf_idx_offset + r);
+  return std::make_pair(leaf_idx_offset + l, leaf_idx_offset + r);
 }
 
 
