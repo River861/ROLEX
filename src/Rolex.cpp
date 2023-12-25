@@ -145,7 +145,7 @@ void Rolex::insert(const Key &k, Value v, CoroPull* sink) {
 
   // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
-  LeafNode* leaf = (LeafNode*)nullptr, syn_leaf = (LeafNode*)nullptr;
+  LeafNode* leaf = nullptr, *syn_leaf = nullptr;
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
