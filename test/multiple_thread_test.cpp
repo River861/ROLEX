@@ -192,7 +192,7 @@ void thread_run(int id) {
   for (uint64_t i = 0; i < end_warm_key; ++ i) {
     if (i % all_thread == my_id) {
       if (i % LOAD_HEARTBEAT == 0) printf("[thread %lu] end_warm_key=%lu, all_thread=%lu, loading %lu...\n", my_id, end_warm_key, all_thread, i);
-      rolex_idx->insert(to_key(i), key2int(to_key(i)) * 2);
+      rolex_index->insert(to_key(i), key2int(to_key(i)) * 2);
     }
   }
 
@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
   bindCore(kThreadCount * 2 + 1);
 
   load_train_keys();
-  rolex = new RolexIndex(dsm, load_keys);
+  rolex_index = new RolexIndex(dsm, load_keys);
 
   dsm->barrier("benchmark");
 

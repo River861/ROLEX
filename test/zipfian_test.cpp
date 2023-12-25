@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
   bindCore(kThreadCount * 2 + 1);
 
   load_train_keys();
-  rolex = new RolexIndex(dsm, load_keys);
+  rolex_index = new RolexIndex(dsm, load_keys);
 
   dsm->barrier("benchmark");
 
