@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
   dsm->registerThread();
 
   load_train_keys();
-  rolex_index = new RolexIndex(dsm, load_keys);
+  rolex_index = new RolexIndex(dsm, train_keys);
 
   dsm->barrier("benchmark");
 
