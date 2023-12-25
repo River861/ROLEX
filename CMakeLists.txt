@@ -50,8 +50,9 @@ endif()
 #Include files
 set(INCLUDE_BASE ${PROJECT_SOURCE_DIR}/include)
 include_directories(${INCLUDE_BASE})
-# include_directories(${INCLUDE_BASE}/rolex_libs)
-# include_directories(${INCLUDE_BASE}/rolex_libs/deps)
+include_directories(${INCLUDE_BASE}/rolex_libs)
+include_directories(${INCLUDE_BASE}/rolex_libs/rolex)
+include_directories(${INCLUDE_BASE}/rolex_libs/deps)
 
 #Source file define
 set(COMMON_SRC ${PROJECT_SOURCE_DIR}/src)
