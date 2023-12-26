@@ -32,6 +32,7 @@ extern uint64_t try_read_op[MAX_APP_THREAD];
 extern uint64_t read_leaf_retry[MAX_APP_THREAD];
 extern uint64_t leaf_read_syn[MAX_APP_THREAD];
 extern uint64_t try_read_leaf[MAX_APP_THREAD];
+extern std::map<uint64_t, uint64_t> range_cnt[MAX_APP_THREAD];
 
 int kReadRatio;
 int kThreadCount;
@@ -381,6 +382,17 @@ int main(int argc, char *argv[]) {
       leaf_read_syn_cnt += leaf_read_syn[i];
     }
 
+    std::map<uint64_t, uint64_t> range_cnt_sum;
+    uint64_t range_cnt_sum_total = 0;
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+      for (const auto& [range_size, cnt] : range_cnt[i]) {
+        range_cnt_sum[range_size] += cnt;
+        range_cnt_sum_total += cnt;
+      }
+    }
+
+    std::fill(need_clear, need_clear + MAX_APP_THREAD, true);
+
     save_latency(++ count);
     if (count >= TEST_EPOCH) {
       need_stop = true;
@@ -393,6 +405,13 @@ int main(int argc, char *argv[]) {
       printf("%d, throughput %.4f\n", dsm->getMyNodeID(), per_node_tp);
     }
 
+    if (dsm->getMyNodeID() == 1) {
+      for (const auto& [range_size, cnt] : range_cnt_sum) {
+        printf("leaf_cnt=%lu ratio=%.2lf; ", range_size, (double)cnt / range_cnt_sum_total);
+      }
+      printf("\n\n");
+    }
+
     if (dsm->getMyNodeID() == 0) {
       printf("epoch %d passed!\n", count);
       printf("cluster throughput %.3f\n", cluster_tp / 1000.0);
@@ -403,7 +422,6 @@ int main(int argc, char *argv[]) {
       printf("read sibling leaf rate: %.4lf\n", leaf_read_syn_cnt * 1.0 / try_read_leaf_cnt);
       printf("\n");
     }
-    std::fill(need_clear, need_clear + MAX_APP_THREAD, true);
     search_not_found = 0;
     search_cnt = 0;
   }

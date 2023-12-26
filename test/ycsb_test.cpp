@@ -498,9 +498,9 @@ int main(int argc, char *argv[]) {
 
     if (dsm->getMyNodeID() == 1) {
       for (const auto& [range_size, cnt] : range_cnt_sum) {
-        printf("leaf_cnt=%lu ratio=%.4lf; ", range_size, (double)cnt / range_cnt_sum_total);
+        printf("leaf_cnt=%lu ratio=%.2lf; ", range_size, (double)cnt / range_cnt_sum_total);
       }
-      printf("\n");
+      printf("\n\n");
     }
 
     if (dsm->getMyNodeID() == 0) {
