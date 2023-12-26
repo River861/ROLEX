@@ -18,18 +18,14 @@
 #include <mutex>
 std::mutex debug_lock;
 
-double cache_miss[MAX_APP_THREAD];
-double cache_hit[MAX_APP_THREAD];
 uint64_t lock_fail[MAX_APP_THREAD];
 uint64_t write_handover_num[MAX_APP_THREAD];
 uint64_t try_write_op[MAX_APP_THREAD];
 uint64_t read_handover_num[MAX_APP_THREAD];
 uint64_t try_read_op[MAX_APP_THREAD];
 uint64_t read_leaf_retry[MAX_APP_THREAD];
-uint64_t leaf_cache_invalid[MAX_APP_THREAD];
-uint64_t leaf_read_sibling[MAX_APP_THREAD];
+uint64_t leaf_read_syn[MAX_APP_THREAD];
 uint64_t try_read_leaf[MAX_APP_THREAD];
-uint64_t retry_cnt[MAX_APP_THREAD][MAX_FLAG_NUM];
 
 uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
 
@@ -57,18 +53,14 @@ RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id)
 inline void RolexIndex::before_operation(CoroPull* sink) {
   auto tid = dsm->getMyThreadID();
   if (need_clear[tid]) {
-    cache_miss[tid]              = 0;
-    cache_hit[tid]               = 0;
     lock_fail[tid]               = 0;
     write_handover_num[tid]      = 0;
     try_write_op[tid]            = 0;
     read_handover_num[tid]       = 0;
     try_read_op[tid]             = 0;
     read_leaf_retry[tid]         = 0;
-    leaf_cache_invalid[tid]      = 0;
-    leaf_read_sibling[tid]       = 0;
+    leaf_read_syn[tid]           = 0;
     try_read_leaf[tid]           = 0;
-    std::fill(retry_cnt[tid], retry_cnt[tid] + MAX_FLAG_NUM, 0);
     need_clear[tid]              = false;
   }
 }
@@ -136,6 +128,22 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
+  // handover
+  bool write_handover = false;
+  std::pair<bool, bool> lock_res = std::make_pair(false, false);
+
+  try_write_op[dsm->getMyThreadID()] ++;
+#ifdef TREE_ENABLE_WRITE_COMBINING
+  lock_res = local_lock_table->acquire_local_write_lock(k, v, &busy_waiting_queue, sink);
+  write_handover = (lock_res.first && !lock_res.second);
+#else
+  UNUSED(lock_res);
+#endif
+  if (write_handover) {
+    write_handover_num[dsm->getMyThreadID()]++;
+    goto insert_finish;
+  }
+
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
   std::vector<GlobalAddress> leaf_addrs;
@@ -149,8 +157,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
-    fetch_node(insert_leaf_addr, leaf, sink);
-    if (syn_leaf_addrs.find(insert_leaf_addr) != syn_leaf_addrs.end()) {
+    fetch_node(insert_leaf_addr, leaf, sink, false);
+    if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
+      leaf_read_syn[dsm->getMyThreadID()] ++;
+      syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       fetch_node(syn_leaf_addrs[insert_leaf_addr], syn_leaf, sink);
     }
   }
@@ -165,11 +175,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   auto& records = leaf->records;
   int i;
   bool write_leaf = false, write_syn_leaf = false;
+#ifdef TREE_ENABLE_WRITE_COMBINING
+  local_lock_table->get_combining_value(k, v);
+#endif
   for (i = 0; i < (int)define::leafSpanSize; ++ i) {
     const auto& e = records[i];
     if (e.key == k) {
       unlock_node(insert_leaf_addr, sink);
-      return;
+      goto insert_finish;
     }
     if (e.key == define::kkeyNull || e.key > k) break;
   }
@@ -178,7 +191,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
     if (syn_addr == GlobalAddress::Max()) {  // existing key
       unlock_node(insert_leaf_addr, sink);
-      return;
+      goto insert_finish;
     }
     if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
       write_leaf = true;
@@ -196,7 +209,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.value, syn_leaf, sink);
       if (syn_addr == GlobalAddress::Max()) {  // existing key
         unlock_node(insert_leaf_addr, sink);
-        return;
+        goto insert_finish;
       }
       if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
         syn_leaf_addrs[insert_leaf_addr] = syn_addr;
@@ -215,6 +228,11 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, sink);
+
+insert_finish:
+#ifdef TREE_ENABLE_WRITE_COMBINING
+  local_lock_table->release_local_write_lock(k, lock_res);
+#endif
   return;
 }
 
@@ -250,6 +268,7 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
 
 
 void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt) {
+  try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
 
@@ -273,6 +292,7 @@ re_fetch:
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
       leaves.clear();
+      read_leaf_retry[dsm->getMyThreadID()] ++;
       goto re_fetch;
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
@@ -315,7 +335,9 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
 }
 
 
-void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink) {
+void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink, bool update_local_slt) {
+  try_read_leaf[dsm->getMyThreadID()] ++;
+
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   leaf = (LeafNode*) leaf_buffer;
@@ -323,9 +345,10 @@ re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+    read_leaf_retry[dsm->getMyThreadID()] ++;
     goto re_read;
   }
-  if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
+  if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
   }
   return;
@@ -356,10 +379,26 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
+  // handover
+  bool write_handover = false;
+  std::pair<bool, bool> lock_res = std::make_pair(false, false);
+
+  try_write_op[dsm->getMyThreadID()]++;
+#ifdef TREE_ENABLE_WRITE_COMBINING
+  lock_res = local_lock_table->acquire_local_write_lock(k, v, &busy_waiting_queue, sink);
+  write_handover = (lock_res.first && !lock_res.second);
+#else
+  UNUSED(lock_res);
+#endif
+  if (write_handover) {
+    write_handover_num[dsm->getMyThreadID()]++;
+    goto update_finish;
+  }
+
   // 1. Fetching
   Value old_v;
   auto [ret, leaf_addr, lock_leaf_addr] = _search(k, old_v, sink);
-  if (old_v == v) return;
+  UNUSED(old_v);
   // 2. Fine-grained locking and re-read
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
@@ -373,16 +412,26 @@ read_another:
     if (e.key == define::kkeyNull) break;
     if (e.key == k) {
       key_is_found = true;
+#ifdef TREE_ENABLE_WRITE_COMBINING
+      local_lock_table->get_combining_value(k, v);
+#endif
       e.update(k, v);
+      break;
     }
   }
   if (!key_is_found && leaf_addr == lock_leaf_addr) {  // key is moved to the synonym leaf
     assert(leaf->metadata.synonym_ptr != GlobalAddress::Null());
     leaf_addr = leaf->metadata.synonym_ptr;
+    leaf_read_syn[dsm->getMyThreadID()] ++;
     goto read_another;
   }
   // 4. Writing and unlock
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
+
+update_finish:
+#ifdef TREE_ENABLE_WRITE_COMBINING
+  local_lock_table->release_local_write_lock(k, lock_res);
+#endif
   return;
 }
 
@@ -391,8 +440,30 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
-  auto [ret, _1, _2] = _search(k, v, sink);
-  return ret;
+  // handover
+  bool search_res = false;
+  std::pair<bool, bool> lock_res = std::make_pair(false, false);
+  bool read_handover = false;
+
+  try_read_op[dsm->getMyThreadID()] ++;
+#ifdef TREE_ENABLE_READ_DELEGATION
+  lock_res = local_lock_table->acquire_local_read_lock(k, &busy_waiting_queue, sink);
+  read_handover = (lock_res.first && !lock_res.second);
+#else
+  UNUSED(lock_res);
+#endif
+  if (read_handover) {
+    read_handover_num[dsm->getMyThreadID()]++;
+    goto search_finish;
+  }
+
+  auto [search_res, _1, _2] = _search(k, v, sink);
+
+search_finish:
+#ifdef TREE_ENABLE_READ_DELEGATION
+  local_lock_table->release_local_read_lock(k, lock_res, search_res, v);  // handover the ret leaf addr
+#endif
+  return search_res;
 }
 
 
@@ -430,6 +501,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress> RolexIndex::_search(const Key &k,
     }
   }
   if (!append_leaf_addrs.empty()) {
+    leaf_read_syn[dsm->getMyThreadID()] ++;
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
     leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
@@ -555,15 +627,12 @@ void RolexIndex::statistics() {
 }
 
 void RolexIndex::clear_debug_info() {
-  memset(cache_miss, 0, sizeof(double) * MAX_APP_THREAD);
-  memset(cache_hit, 0, sizeof(double) * MAX_APP_THREAD);
   memset(lock_fail, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(write_handover_num, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(try_write_op, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(read_handover_num, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(try_read_op, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(read_leaf_retry, 0, sizeof(uint64_t) * MAX_APP_THREAD);
-  memset(leaf_cache_invalid, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(try_read_leaf, 0, sizeof(uint64_t) * MAX_APP_THREAD);
-  memset(retry_cnt, 0, sizeof(uint64_t) * MAX_APP_THREAD * MAX_FLAG_NUM);
+  memset(leaf_read_syn, 0, sizeof(uint64_t) * MAX_APP_THREAD);
 }

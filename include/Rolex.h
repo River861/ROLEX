@@ -42,14 +42,6 @@ public:
 
 /* Rolex */
 using GenFunc = std::function<RequstGen *(DSM*, Request*, int, int, int)>;
-#define MAX_FLAG_NUM 4
-enum {
-  FIRST_TRY,
-  INVALID_LEAF,
-  INVALID_NODE,
-  FIND_NEXT
-};
-
 
 class RolexIndex {
 public:
@@ -76,7 +68,7 @@ private:
 
   // low-level functions
   GlobalAddress insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink);  // return syn_addr if allocating a new synonym leaf
-  void fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink);
+  void fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink, bool update_local_slt=true);
   void fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt=true);
   void write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
   void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink);

@@ -18,9 +18,9 @@
 #include "WRLock.h"
 
 // TODO
-#define HOPSCOTCH_LEAF_NODE
-#define TREE_ENABLE_READ_DELEGATION
-#define TREE_ENABLE_WRITE_COMBINING
+// #define HOPSCOTCH_LEAF_NODE
+// #define TREE_ENABLE_READ_DELEGATION
+// #define TREE_ENABLE_WRITE_COMBINING
 
 // Environment Config
 #define MAX_MACHINE 20

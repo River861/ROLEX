@@ -19,18 +19,14 @@
 // #define NO_WRITE_CONFLICT
 // #define TEST_INSERT
 
-extern double cache_miss[MAX_APP_THREAD];
-extern double cache_hit[MAX_APP_THREAD];
 extern uint64_t lock_fail[MAX_APP_THREAD];
 extern uint64_t write_handover_num[MAX_APP_THREAD];
 extern uint64_t try_write_op[MAX_APP_THREAD];
 extern uint64_t read_handover_num[MAX_APP_THREAD];
 extern uint64_t try_read_op[MAX_APP_THREAD];
 extern uint64_t read_leaf_retry[MAX_APP_THREAD];
-extern uint64_t leaf_cache_invalid[MAX_APP_THREAD];
-extern uint64_t leaf_read_sibling[MAX_APP_THREAD];
+extern uint64_t leaf_read_syn[MAX_APP_THREAD];
 extern uint64_t try_read_leaf[MAX_APP_THREAD];
-extern uint64_t retry_cnt[MAX_APP_THREAD][MAX_FLAG_NUM];
 
 int kReadRatio;
 int kThreadCount;
@@ -315,12 +311,6 @@ int main(int argc, char *argv[]) {
     uint64_t cap = all_tp - pre_tp;
     pre_tp = all_tp;
 
-    double all = 0, hit = 0;
-    for (int i = 0; i < MAX_APP_THREAD; ++i) {
-      all += (cache_hit[i] + cache_miss[i]);
-      hit += cache_hit[i];
-    }
-
     uint64_t lock_fail_cnt = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
       lock_fail_cnt += lock_fail[i];
@@ -338,34 +328,18 @@ int main(int argc, char *argv[]) {
       try_read_op_cnt += try_read_op[i];
     }
 
-    uint64_t try_read_leaf_cnt = 0, read_leaf_retry_cnt = 0, leaf_cache_invalid_cnt = 0, leaf_read_sibling_cnt = 0;
+    uint64_t try_read_leaf_cnt = 0, read_leaf_retry_cnt = 0, leaf_read_syn_cnt = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
       try_read_leaf_cnt += try_read_leaf[i];
       read_leaf_retry_cnt += read_leaf_retry[i];
-      leaf_cache_invalid_cnt += leaf_cache_invalid[i];
-      leaf_read_sibling_cnt += leaf_read_sibling[i];
+      leaf_read_syn_cnt += leaf_read_syn[i];
     }
 
-    uint64_t all_retry_cnt[MAX_FLAG_NUM];
-    memset(all_retry_cnt, 0, sizeof(uint64_t) * MAX_FLAG_NUM);
-    for (int i = 0; i < MAX_FLAG_NUM; ++i) {
-      for (int j = 0; j < MAX_APP_THREAD; ++j) {
-        all_retry_cnt[i] += retry_cnt[j][i];
-      }
-    }
     std::fill(need_clear, need_clear + MAX_APP_THREAD, true);
 
     save_latency(++ count);
     if (count >= TEST_EPOCH) {
       need_stop = true;
-    }
-
-    if (dsm->getMyNodeID() == 1) {
-      printf("total %lu", all_retry_cnt[0]);
-      for (int i = 1; i < MAX_FLAG_NUM; ++ i) {
-        printf(",  retry%d %lu", i, all_retry_cnt[i]);
-      }
-      printf("\n");
     }
 
     double per_node_tp = cap * 1.0 / microseconds;
@@ -376,13 +350,11 @@ int main(int argc, char *argv[]) {
     if (dsm->getMyNodeID() == 0) {
       printf("epoch %d passed!\n", count);
       printf("cluster throughput %.3f\n", cluster_tp / 1000.0);
-      printf("cache hit rate: %.4lf\n", hit * 1.0 / all);
       printf("avg. lock/cas fail cnt: %.4lf\n", lock_fail_cnt * 1.0 / try_write_op_cnt);
       printf("write combining rate: %.4lf\n", write_handover_cnt * 1.0 / try_write_op_cnt);
       printf("read delegation rate: %.4lf\n", read_handover_cnt * 1.0 / try_read_op_cnt);
       printf("read leaf retry rate: %.4lf\n", read_leaf_retry_cnt * 1.0 / try_read_leaf_cnt);
-      printf("read invalid leaf rate: %.4lf\n", leaf_cache_invalid_cnt * 1.0 / try_read_leaf_cnt);
-      printf("read sibling leaf rate: %.4lf\n", leaf_read_sibling_cnt * 1.0 / try_read_leaf_cnt);
+      printf("read sibling leaf rate: %.4lf\n", leaf_read_syn_cnt * 1.0 / try_read_leaf_cnt);
       printf("\n");
     }
   }
