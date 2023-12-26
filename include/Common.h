@@ -18,7 +18,15 @@
 #include "WRLock.h"
 
 // TODO
-// #define HOPSCOTCH_LEAF_NODE
+// DEBUG-TREE
+#define HOPSCOTCH_LEAF_NODE
+// #define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
+// #define SIBLING_BASED_VALIDATION       // !!NOTE: should be turned on together with SCATTERED_LEAF_METADATA
+// #define SPECULATIVE_READ
+// DEBUG-SCAN (can boost small-length scan)
+// #define FINE_GRAINED_SCAN
+// #define BANDWIDTH_GREEDY_SCAN
+
 #define TREE_ENABLE_READ_DELEGATION
 #define TREE_ENABLE_WRITE_COMBINING
 
@@ -134,9 +142,18 @@ constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
 // Leaf Node
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
+#ifdef HOPSCOTCH_LEAF_NODE
+constexpr uint32_t leafEntrySize = versionSize + sizeof(uint8_t) + keyLen + simulatedValLen;
+#else
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
+#endif
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize, versionSize);
 constexpr uint32_t allocationLeafSize = transLeafSize + 8UL;  // remain space for the lock
+
+// Hopscotch Hashing
+constexpr uint32_t hopRange = 8;
+constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
+constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 
 // Rdma Buffer
 constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;

@@ -27,6 +27,9 @@ inline bool operator==(const LeafMetadata &lhs, const LeafMetadata &rhs) {
 class LeafEntry {
 public:
   PackedVersion h_version;
+#ifdef HOPSCOTCH_LEAF_NODE
+  uint8_t hop_bitmap : define::hopRange;
+#endif
   // kv
   Key key;
   union {
@@ -35,10 +38,25 @@ public:
   };
 
 public:
+#ifdef HOPSCOTCH_LEAF_NODE
+  LeafEntry() : h_version(), hop_bitmap(0U), key(define::kkeyNull), value(define::kValueNull) {}
+  LeafEntry(const Key& k, const Value& v) : h_version(), hop_bitmap(0U), key(k), value(v) {}
+#else
   LeafEntry() : h_version(), key(define::kkeyNull), value(define::kValueNull) {}
   LeafEntry(const Key& k, const Value& v) : h_version(), key(k), value(v) {}
+#endif
 
   void update(const Key& k, const Value& v) { key = k, value = v; }
+#ifdef HOPSCOTCH_LEAF_NODE
+  void set_hop_bit(int idx) {
+    assert(idx >= 0 && idx < (int)define::hopRange && !(hop_bitmap & (1U << (define::hopRange - idx - 1))));
+    hop_bitmap |= 1U << (define::hopRange - idx - 1);
+  }
+  void unset_hop_bit(int idx) {
+    assert(idx >= 0 && idx < (int)define::hopRange && (hop_bitmap & (1U << (define::hopRange - idx - 1))));
+    hop_bitmap &= ~(1U << (define::hopRange - idx - 1));
+  }
+#endif
 
   static LeafEntry Null() {
     static LeafEntry _zero;
