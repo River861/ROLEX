@@ -445,6 +445,7 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   before_operation(sink);
 
   // handover
+  bool search_res = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
   bool read_handover = false;
 
@@ -461,7 +462,8 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   }
 
   {
-  auto [search_res, _1, _2] = _search(k, v, sink);
+  auto [ret, _1, _2] = _search(k, v, sink);
+  search_res = ret;
   }
 
 search_finish:
