@@ -26,6 +26,7 @@ uint64_t try_read_op[MAX_APP_THREAD];
 uint64_t read_leaf_retry[MAX_APP_THREAD];
 uint64_t leaf_read_syn[MAX_APP_THREAD];
 uint64_t try_read_leaf[MAX_APP_THREAD];
+std::map<uint64_t, uint64_t> range_cnt[MAX_APP_THREAD];
 
 uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
 
@@ -61,6 +62,7 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
     read_leaf_retry[tid]         = 0;
     leaf_read_syn[tid]           = 0;
     try_read_leaf[tid]           = 0;
+    range_cnt[tid].clear();
     need_clear[tid]              = false;
   }
 }
@@ -147,6 +149,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
+  range_cnt[dsm->getMyThreadID()][r - l + 1] ++;
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
@@ -477,6 +480,7 @@ search_finish:
 std::tuple<bool, GlobalAddress, GlobalAddress> RolexIndex::_search(const Key &k, Value &v, CoroPull* sink) {
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
+  range_cnt[dsm->getMyThreadID()][r - l + 1] ++;
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> leaves;
   std::vector<GlobalAddress> locked_leaf_addrs;
@@ -539,6 +543,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
 
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_range_from_cache(from, to);
+  range_cnt[dsm->getMyThreadID()][r - l + 1] ++;
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> leaves;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // leaves
@@ -642,4 +647,5 @@ void RolexIndex::clear_debug_info() {
   memset(read_leaf_retry, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(try_read_leaf, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(leaf_read_syn, 0, sizeof(uint64_t) * MAX_APP_THREAD);
+  for (int i = 0; i > MAX_APP_THREAD; ++ i) range_cnt[i].clear();
 }
