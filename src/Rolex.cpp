@@ -128,12 +128,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
-  // params
-  std::vector<GlobalAddress> leaf_addrs;
-  std::vector<LeafNode*> leaves;
-  LeafNode* leaf = nullptr, *syn_leaf = nullptr;
-  bool write_leaf = false, write_syn_leaf = false;
-
   // handover
   bool write_handover = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
@@ -150,13 +144,17 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     goto insert_finish;
   }
 
+  {
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
+  std::vector<GlobalAddress> leaf_addrs;
+  std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
-  fetch_nodes(leaf_addrs, leaves, sink);
+  fetch_nodes(leaf_addrs, _, sink);
 
   // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
+  LeafNode* leaf = nullptr, *syn_leaf = nullptr;
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
@@ -177,6 +175,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(leaf != nullptr);
   auto& records = leaf->records;
   int i;
+  bool write_leaf = false, write_syn_leaf = false;
 #ifdef TREE_ENABLE_WRITE_COMBINING
   local_lock_table->get_combining_value(k, v);
 #endif
@@ -226,10 +225,11 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 
   // 4. Writing and unlocking
   leaf_addrs.clear();
-  leaves.clear();
+  std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, sink);
+  }
 
 insert_finish:
 #ifdef TREE_ENABLE_WRITE_COMBINING
@@ -381,10 +381,6 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
-  // params
-  Value old_v;
-  bool key_is_found = false;
-
   // handover
   bool write_handover = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
@@ -401,7 +397,9 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
     goto update_finish;
   }
 
+  {
   // 1. Fetching
+  Value old_v;
   auto [ret, leaf_addr, lock_leaf_addr] = _search(k, old_v, sink);
   UNUSED(old_v);
   // 2. Fine-grained locking and re-read
@@ -412,6 +410,7 @@ read_another:
   // 3. Update k locally
   assert(leaf != nullptr);
   auto& records = leaf->records;
+  bool key_is_found = false;
   for (auto& e : records) {
     if (e.key == define::kkeyNull) break;
     if (e.key == k) {
@@ -431,6 +430,7 @@ read_another:
   }
   // 4. Writing and unlock
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
+  }
 
 update_finish:
 #ifdef TREE_ENABLE_WRITE_COMBINING
@@ -443,9 +443,6 @@ update_finish:
 bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
-
-  // params
-
 
   // handover
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
@@ -463,7 +460,9 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
     goto search_finish;
   }
 
+  {
   auto [search_res, _1, _2] = _search(k, v, sink);
+  }
 
 search_finish:
 #ifdef TREE_ENABLE_READ_DELEGATION
