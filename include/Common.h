@@ -102,8 +102,8 @@ constexpr uint64_t fakePort            = 8888;
 constexpr uint64_t modelRegionSize     = 100 * MB;
 constexpr uint64_t fakeLeafRegionSize  = 2   * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
-constexpr uint32_t leafSpanSize        = 32;  // 64
-constexpr uint64_t epsilon             = 32;   // 32
+constexpr uint32_t leafSpanSize        = 64;   // 64
+constexpr uint64_t epsilon             = 16;   // 32
 
 // KV
 constexpr uint64_t kKeyMin = 1;
