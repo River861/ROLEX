@@ -99,7 +99,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   int cnt = 0;
 re_acquire:
   if (!acquire_lock(node_addr)){
-    if (++ cnt > 100000) {
+    if (++ cnt > 1000000) {
       printf("dead lock!\n");
       assert(false);
     }
