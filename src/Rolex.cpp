@@ -484,12 +484,11 @@ read_another:
     assert(leaf->metadata.synonym_ptr != GlobalAddress::Null());
     leaf_addr = leaf->metadata.synonym_ptr;
     leaf_read_syn[dsm->getMyThreadID()] ++;
-    printf("FUCK 2\n");
     goto read_another;
   }
   // 4. Writing and unlock
 #ifdef HOPSCOTCH_LEAF_NODE
-  entry_write_and_unlock(leaf, kv_idx, k, v, leaf_addr, sink);
+  entry_write_and_unlock(leaf, kv_idx, lock_leaf_addr, sink);
 #else
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
 #endif
@@ -606,7 +605,6 @@ re_read:
     }
     if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
-      printf("FUCK 3\n");
       goto re_read;
     }
 #else
@@ -883,10 +881,9 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
 }
 
 
-void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink) {
+void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const GlobalAddress& node_addr, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   auto& entry = leaf->records[idx];
   const auto & metadata = leaf->metadata;
-  entry.update(k, v);
   auto encoded_entry_buffer = (dsm->get_rbuf(sink)).get_entry_buffer();
 #if (defined SCATTERED_LEAF_METADATA && defined HOPSCOTCH_LEAF_NODE)
   auto get_info_and_encode_versions = [=, &entry, &metadata](int idx){
@@ -904,7 +901,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Key
   VerMng::encode_entry_versions((char *)&entry, encoded_entry_buffer, first_offset);
 #endif
   // write entry and unlock
-  if (idx == define::leafSpanSize - 1) {
+  if (idx == define::leafSpanSize - 1 && node_addr == locked_leaf_addr) {
     memset(encoded_entry_buffer + raw_len, 0, sizeof(uint64_t));  // unlock
     dsm->write_sync_without_sink(encoded_entry_buffer, node_addr + raw_offset, raw_len + sizeof(uint64_t), sink, &busy_waiting_queue);
   }
@@ -915,10 +912,10 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Key
     rs[0].size = raw_len;
     rs[0].is_on_chip = false;
 
-    auto lock_offset = get_unlock_info(node_addr);
+    auto lock_offset = get_unlock_info(locked_leaf_addr);
     auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
     rs[1].source = (uint64_t)zero_buffer;
-    rs[1].dest = (node_addr + lock_offset).to_uint64();
+    rs[1].dest = (locked_leaf_addr + lock_offset).to_uint64();
     rs[1].size = sizeof(uint64_t);
     rs[1].is_on_chip = false;
     dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
