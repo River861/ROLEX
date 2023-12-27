@@ -488,7 +488,7 @@ read_another:
   }
   // 4. Writing and unlock
 #ifdef HOPSCOTCH_LEAF_NODE
-  entry_write_and_unlock(leaf, kv_idx, lock_leaf_addr, sink);
+  entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, sink);
 #else
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
 #endif
