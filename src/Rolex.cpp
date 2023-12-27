@@ -98,6 +98,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   };
 re_acquire:
   if (!acquire_lock(node_addr)){
+    printf("FUCK1\n");
     if (sink != nullptr) {
       busy_waiting_queue.push(sink->get());
       (*sink)();
@@ -363,7 +364,7 @@ re_fetch:
     if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
       leaves.clear();
       read_leaf_retry[dsm->getMyThreadID()] ++;
-      printf("FUCK\n");
+      printf("FUCK3\n");
       goto re_fetch;
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
@@ -416,6 +417,7 @@ re_read:
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
+    printf("FUCK2\n");
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
