@@ -207,7 +207,19 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       syn_leaf_addrs[insert_leaf_addr] = syn_leaf_addr;
       leaf->metadata.synonym_ptr = syn_leaf_addr;
       // write syn_pointer and unlock
-      write_node_and_unlock(insert_leaf_addr, leaf, insert_leaf_addr, sink);
+      std::vector<RdmaOpRegion> rs(2);
+      rs[0].source = (uint64_t)leaf;
+      rs[0].dest = insert_leaf_addr.to_uint64();
+      rs[0].size = define::leafMetadataSize;
+      rs[0].is_on_chip = false;
+      // unlock
+      auto lock_offset = get_unlock_info(insert_leaf_addr);
+      auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+      rs[1].source = (uint64_t)zero_buffer;
+      rs[1].dest = (insert_leaf_addr + lock_offset).to_uint64();
+      rs[1].size = sizeof(uint64_t);
+      rs[1].is_on_chip = false;
+      dsm->write_batches_sync(rs, sink);
     }
     else {
       unlock_node(insert_leaf_addr, sink);
@@ -378,7 +390,7 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-  leaf = (LeafNode*) leaf_buffer;
+  leaf = new (leaf_buffer) LeafNode;
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
@@ -770,7 +782,7 @@ re_fetch:
     auto raw_segment_buffer_r = raw_buffer + raw_offset_r;
     auto raw_segment_buffer_l = raw_buffer + raw_offset_l;
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    auto leaf = (LeafNode*) leaf_buffer;
+    auto leaf = new (leaf_buffer) LeafNode;
     uint8_t metadata_node_version = 0, segment_node_versions_r = 0, segment_node_versions_l = 0;
     if (!VerMng::decode_header_versions(raw_buffer, leaf_buffer, metadata_node_version) ||
         (segment_size_l > 0 && !VerMng::decode_segment_versions(raw_segment_buffer_l, (char*)&(leaf->records[0]), first_offset_l, segment_size_l, segment_node_versions_l)) ||
