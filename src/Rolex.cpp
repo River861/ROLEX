@@ -157,7 +157,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink);
+  hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, std::vector<bool>((int)leaf_addrs.size(), true), sink);
 #else
   fetch_nodes(leaf_addrs, _, sink);
 #endif
@@ -200,20 +200,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
   if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
-    GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
-    if (!syn_leaf) {  // allocate a new synonym leaf
-      syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
-      auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      syn_leaf = new (syn_buffer) LeafNode;
-      write_leaf = true;
+    auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
+    if (syn_addr == GlobalAddress::Max()) {  // existing key
+      unlock_node(insert_leaf_addr, sink);
+      goto insert_finish;
     }
-    if (hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
-      printf("synonmy leaf is hop-full!!\n");
-      assert(false);
-    }
-    if (write_leaf) {  // new syn leaf
-      syn_leaf_addrs[insert_leaf_addr] = syn_leaf_addr;
-      leaf->metadata.synonym_ptr = syn_leaf_addr;
+    if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
+      syn_leaf_addrs[insert_leaf_addr] = syn_addr;
+      leaf->metadata.synonym_ptr = syn_addr;
       // write syn_pointer and unlock
       std::vector<RdmaOpRegion> rs(2);
       rs[0].source = (uint64_t)leaf;
@@ -229,8 +223,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[1].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
     }
-    else {
-      unlock_node(insert_leaf_addr, sink);
+    else {  // old syn leaf: write syn leaf and unlock
+      syn_addr = leaf->metadata.synonym_ptr;
+      write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
     }
   }
 #else
@@ -470,7 +465,7 @@ read_another:
   read_leaf_cnt ++;
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_node(leaf_addr, hash_idx, leaf, sink);
+  hopscotch_fetch_node(leaf_addr, hash_idx, leaf, leaf_addr == lock_leaf_addr, sink);
 #else
   fetch_node(leaf_addr, leaf, sink);
 #endif
@@ -479,16 +474,32 @@ read_another:
   auto& records = leaf->records;
   bool key_is_found = false;
 #ifdef HOPSCOTCH_LEAF_NODE
-  for (int j = 0; j < (int)define::hopRange; ++ j) {
-    kv_idx = (hash_idx + j) % define::leafSpanSize;
-    auto& e = leaf->records[kv_idx];
-    if (e.key == k) {
-      key_is_found = true;
+  if (leaf_addr == lock_leaf_addr) {  // is_syn
+    for (kv_idx = 0; kv_idx < define::leafSpanSize; ++ kv_idx) {
+      auto& e = records[kv_idx];
+      if (e.key == define::kkeyNull) break;
+      if (e.key == k) {
+        key_is_found = true;
 #ifdef TREE_ENABLE_WRITE_COMBINING
-      local_lock_table->get_combining_value(k, v);
+        local_lock_table->get_combining_value(k, v);
 #endif
-      e.update(k, v);
-      break;
+        e.update(k, v);
+        break;
+      }
+    }
+  }
+  else {
+    for (int j = 0; j < (int)define::hopRange; ++ j) {
+      kv_idx = (hash_idx + j) % define::leafSpanSize;
+      auto& e = leaf->records[kv_idx];
+      if (e.key == k) {
+        key_is_found = true;
+#ifdef TREE_ENABLE_WRITE_COMBINING
+        local_lock_table->get_combining_value(k, v);
+#endif
+        e.update(k, v);
+        break;
+      }
     }
   }
 #else
@@ -590,7 +601,9 @@ re_read:
   read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
+  std::vector<bool> is_syn;
+  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) is_syn.emplace(leaf_addrs[i] == locked_leaf_addrs[i]);
+  hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, is_syn, sink, false);
 #else
   fetch_nodes(leaf_addrs, leaves, sink, false);
 #endif
@@ -612,33 +625,45 @@ re_read:
     leaf_read_syn[dsm->getMyThreadID()] ++;
     read_leaf_cnt += append_leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
-    hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, sink);
+    hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, std::vector<bool>((int)append_leaf_addrs.size(), false), sink);
 #else
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
 #endif
     leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
     locked_leaf_addrs.insert(locked_leaf_addrs.end(), append_locked_leaf_addrs.begin(), append_locked_leaf_addrs.end());
+    for (int i = 0; i < (int)append_leaf_addrs.size(); ++ i) is_syn.emplace_back(false);
   }
   // 3. Search the fetched leaves
   assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
   for (int i = 0; i < (int)leaves.size(); ++ i) {
 #ifdef HOPSCOTCH_LEAF_NODE
-    // check hopping consistency && search key from the segments
-    uint8_t hop_bitmap = 0U;
-    for (int j = 0; j < (int)define::hopRange; ++ j) {
-      const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
-      if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
-        hop_bitmap |= 1U << (define::hopRange - j - 1);
-        if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
+    if (is_syn[i]) {
+      for (const auto& e : leaves[i]->records) {
+        if (e.key == define::kkeyNull) break;
+        if (e.key == k) {
           v = e.value;
           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
         }
       }
     }
-    if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      goto re_read;
+    else {
+      // check hopping consistency && search key from the segments
+      uint8_t hop_bitmap = 0U;
+      for (int j = 0; j < (int)define::hopRange; ++ j) {
+        const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
+        if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
+          hop_bitmap |= 1U << (define::hopRange - j - 1);
+          if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
+            v = e.value;
+            return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
+          }
+        }
+      }
+      if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
+        read_leaf_retry[dsm->getMyThreadID()] ++;
+        goto re_read;
+      }
     }
 #else
     for (const auto& e : leaves[i]->records) {
@@ -753,15 +778,15 @@ next_hop:
 }
 
 
-void RolexIndex::hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, CoroPull* sink, bool update_local_slt) {
+void RolexIndex::hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, bool is_syn, CoroPull* sink, bool update_local_slt) {
   std::vector<LeafNode*> leaves;
-  hopscotch_fetch_nodes(std::vector<GlobalAddress>{leaf_addr}, hash_idx, leaves, sink, update_local_slt);
+  hopscotch_fetch_nodes(std::vector<GlobalAddress>{leaf_addr}, hash_idx, leaves, std::vector<bool>{is_syn}, sink, update_local_slt);
   leaf = leaves.front();
   return;
 }
 
 
-void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt) {
+void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, const std::vector<bool>& is_syn, CoroPull* sink, bool update_local_slt) {
   try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
@@ -777,41 +802,62 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
 re_fetch:
   raw_buffers.clear();
   rs.clear();
-  for (const auto& leaf_addr : leaf_addrs) {
+  for (int i = 0; i < leaf_addrs.size(); ++ i) {
+    const auto& leaf_addr = leaf_addr[i];
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
-    auto raw_segment_buffer_r = raw_buffer + raw_offset_r;
-    auto raw_segment_buffer_l = raw_buffer + raw_offset_l;
+    if (is_syn[i]) {  // read the whole node
+      RdmaOpRegion r;
+      r.source     = (uint64_t)raw_buffer;
+      r.dest       = leaf_addr.to_uint64();
+      r.size       = define::transLeafSize;
+      r.is_on_chip = false;
+      rs.emplace_back(r);
+    }
+    else {
+      auto raw_segment_buffer_r = raw_buffer + raw_offset_r;
+      auto raw_segment_buffer_l = raw_buffer + raw_offset_l;
 
-    RdmaOpRegion r1, r2;
-    r1.source     = (uint64_t)raw_buffer;
-    r1.dest       = leaf_addr.to_uint64();
-    r1.size       = raw_offset_l + raw_len_l;  // header + segment_l (corner case)
-    r1.is_on_chip = false;
-    rs.emplace_back(r1);
+      RdmaOpRegion r1, r2;
+      r1.source     = (uint64_t)raw_buffer;
+      r1.dest       = leaf_addr.to_uint64();
+      r1.size       = raw_offset_l + raw_len_l;  // header + segment_l (corner case)
+      r1.is_on_chip = false;
+      rs.emplace_back(r1);
 
-    r2.source     = (uint64_t)raw_segment_buffer_r;
-    r2.dest       = (leaf_addr + raw_offset_r).to_uint64();
-    r2.size       = raw_len_r;
-    r2.is_on_chip = false;
-    rs.emplace_back(r2);
+      r2.source     = (uint64_t)raw_segment_buffer_r;
+      r2.dest       = (leaf_addr + raw_offset_r).to_uint64();
+      r2.size       = raw_len_r;
+      r2.is_on_chip = false;
+      rs.emplace_back(r2);
+    }
   }
   dsm->read_batches_sync(rs, sink);
   // consistency check
-  for (auto raw_buffer : raw_buffers) {
-    auto raw_segment_buffer_r = raw_buffer + raw_offset_r;
-    auto raw_segment_buffer_l = raw_buffer + raw_offset_l;
+  for (int i = 0; i < raw_buffers.size(); ++ i) {
+    const auto& raw_buffer = raw_buffers[i];
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    auto leaf = new (leaf_buffer) LeafNode;
-    uint8_t metadata_node_version = 0, segment_node_versions_r = 0, segment_node_versions_l = 0;
-    if (!VerMng::decode_header_versions(raw_buffer, leaf_buffer, metadata_node_version) ||
-        (segment_size_l > 0 && !VerMng::decode_segment_versions(raw_segment_buffer_l, (char*)&(leaf->records[0]), first_offset_l, segment_size_l, segment_node_versions_l)) ||
-        !VerMng::decode_segment_versions(raw_segment_buffer_r, (char*)&(leaf->records[hash_idx]), first_offset_r, segment_size_r, segment_node_versions_r) ||
-        metadata_node_version != segment_node_versions_r ||
-        (segment_size_l > 0 && metadata_node_version != segment_node_versions_l)) {
-      leaves.clear();
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      goto re_fetch;
+    auto leaf = (LeafNode*)leaf_buffer;
+    if (is_syn[i]) {
+      if (!VerMng::decode_node_versions(raw_buffer, leaf_buffer)) {
+        leaves.clear();
+        read_leaf_retry[dsm->getMyThreadID()] ++;
+        goto re_fetch;
+      }
+    }
+    else {
+      auto raw_segment_buffer_r = raw_buffer + raw_offset_r;
+      auto raw_segment_buffer_l = raw_buffer + raw_offset_l;
+      uint8_t metadata_node_version = 0, segment_node_versions_r = 0, segment_node_versions_l = 0;
+      if (!VerMng::decode_header_versions(raw_buffer, leaf_buffer, metadata_node_version) ||
+          (segment_size_l > 0 && !VerMng::decode_segment_versions(raw_segment_buffer_l, (char*)&(leaf->records[0]), first_offset_l, segment_size_l, segment_node_versions_l)) ||
+          !VerMng::decode_segment_versions(raw_segment_buffer_r, (char*)&(leaf->records[hash_idx]), first_offset_r, segment_size_r, segment_node_versions_r) ||
+          metadata_node_version != segment_node_versions_r ||
+          (segment_size_l > 0 && metadata_node_version != segment_node_versions_l)) {
+        leaves.clear();
+        read_leaf_retry[dsm->getMyThreadID()] ++;
+        goto re_fetch;
+      }
     }
     leaves.emplace_back(leaf);
   }
