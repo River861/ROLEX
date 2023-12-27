@@ -195,7 +195,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
   if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
-    GlobalAddress syn_leaf_addr{};
+    GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
       syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
       auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
