@@ -98,6 +98,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   };
 re_acquire:
   if (!acquire_lock(node_addr)){
+    printf("FUCK 1\n");
     if (sink != nullptr) {
       busy_waiting_queue.push(sink->get());
       (*sink)();
@@ -483,6 +484,7 @@ read_another:
     assert(leaf->metadata.synonym_ptr != GlobalAddress::Null());
     leaf_addr = leaf->metadata.synonym_ptr;
     leaf_read_syn[dsm->getMyThreadID()] ++;
+    printf("FUCK 2\n");
     goto read_another;
   }
   // 4. Writing and unlock
@@ -604,6 +606,7 @@ re_read:
     }
     if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
+      printf("FUCK 3\n");
       goto re_read;
     }
 #else
