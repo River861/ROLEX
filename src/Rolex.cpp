@@ -205,6 +205,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       unlock_node(insert_leaf_addr, sink);
       goto insert_finish;
     }
+    assert(syn_leaf != nullptr);
     if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       syn_leaf_addrs[insert_leaf_addr] = syn_addr;
       leaf->metadata.synonym_ptr = syn_addr;
