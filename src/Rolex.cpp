@@ -632,7 +632,7 @@ re_read:
         hop_bitmap |= 1U << (define::hopRange - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
-          return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i]);
+          return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
         }
       }
     }
