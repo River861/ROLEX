@@ -317,14 +317,14 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
       }
       if (e.key == define::kkeyNull || e.key > k) break;
     }
-    if (i != (int)define::leafSpanSize) {  // ASSERT: synonym leaf is full!!
+    if (i == (int)define::leafSpanSize) {  // ASSERT: synonym leaf is full!!
       printf("1: synonym leaf is full!!\n");
       // assert(false);
       return GlobalAddress::Max();
     }
     int j = i;
     while (j < (int)define::leafSpanSize && syn_records[j].key != define::kkeyNull) j ++;
-    if (j != (int)define::leafSpanSize) {  // ASSERT: synonym leaf is full!!
+    if (j == (int)define::leafSpanSize) {  // ASSERT: synonym leaf is full!!
       printf("2: synonym leaf is full!!\n");
       // assert(false);
       return GlobalAddress::Max();
