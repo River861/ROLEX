@@ -153,7 +153,12 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
+#ifdef HOPSCOTCH_LEAF_NODE
+  int hash_idx = get_hashed_leaf_entry_index(k);
+  hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink);
+#else
   fetch_nodes(leaf_addrs, _, sink);
+#endif
 
   // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
@@ -188,7 +193,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // use a leaf copy to hop since it may fail
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
-  if (!hopscotch_insert_and_unlock(leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(remain locked) if need insert into synonym leaf
+  if (!hopscotch_insert_and_unlock(leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr{};
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -203,6 +208,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       leaf->metadata.synonym_ptr = syn_leaf_addr;
       // write syn_pointer and unlock
       write_node_and_unlock(insert_leaf_addr, leaf, insert_leaf_addr, sink);
+    }
+    else {
+      unlock_node(insert_leaf_addr, sink);
     }
   }
 #else
@@ -412,7 +420,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   bool write_handover = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
 
-  int i;
+  int kv_idx;
   try_write_op[dsm->getMyThreadID()]++;
 #ifdef TREE_ENABLE_WRITE_COMBINING
   lock_res = local_lock_table->acquire_local_write_lock(k, v, &busy_waiting_queue, sink);
@@ -446,8 +454,8 @@ read_another:
   bool key_is_found = false;
 #ifdef HOPSCOTCH_LEAF_NODE
   for (int j = 0; j < (int)define::hopRange; ++ j) {
-    i = (hash_idx + j) % define::leafSpanSize;
-    const auto& e = leaf->records[i];
+    kv_idx = (hash_idx + j) % define::leafSpanSize;
+    const auto& e = leaf->records[kv_idx];
     if (e.key == k) {
       key_is_found = true;
 #ifdef TREE_ENABLE_WRITE_COMBINING
@@ -470,7 +478,8 @@ read_another:
     }
   }
 #endif
-  if (!key_is_found && leaf_addr == lock_leaf_addr) {  // key is moved to the synonym leaf
+  if (!key_is_found) {  // key is moved to the synonym leaf
+    assert(leaf_addr == lock_leaf_addr);
     assert(leaf->metadata.synonym_ptr != GlobalAddress::Null());
     leaf_addr = leaf->metadata.synonym_ptr;
     leaf_read_syn[dsm->getMyThreadID()] ++;
@@ -478,7 +487,7 @@ read_another:
   }
   // 4. Writing and unlock
 #ifdef HOPSCOTCH_LEAF_NODE
-  entry_write_and_unlock(leaf, i, k, v, leaf_addr, sink);
+  entry_write_and_unlock(leaf, kv_idx, k, v, leaf_addr, sink);
 #else
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
 #endif
@@ -593,7 +602,7 @@ re_read:
         }
       }
     }
-    if (hop_bitmap != records[hash_idx].hop_bitmap) {
+    if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
       goto re_read;
     }
@@ -781,7 +790,6 @@ re_fetch:
   }
   return;
 }
-#endif
 
 
 void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock) {
@@ -859,21 +867,64 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     rs[0].is_on_chip = false;
 
     if (!need_unlock) {
-      rs[1].source = (uint64_t)encoded_segment_buffer_2;
-      rs[1].dest = (node_addr + raw_offset_2).to_uint64();
       rs[1].size = raw_len_2;
     }
     else {
       memset(encoded_segment_buffer_2 + raw_len_2, 0, sizeof(uint64_t));  // unlock
-      rs[1].source = (uint64_t)encoded_segment_buffer_2;
-      rs[1].dest = (node_addr + raw_offset_2).to_uint64();
       rs[1].size = raw_len_2 + sizeof(uint64_t);
     }
+    rs[1].source = (uint64_t)encoded_segment_buffer_2;
+    rs[1].dest = (node_addr + raw_offset_2).to_uint64();
     rs[1].is_on_chip = false;
     dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
   }
   return;
 }
+
+
+void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink) {
+  auto& entry = leaf->records[idx];
+  const auto & metadata = leaf->metadata;
+  entry.update(k, v);
+  auto encoded_entry_buffer = (dsm->get_rbuf(sink)).get_entry_buffer();
+#if (defined SCATTERED_LEAF_METADATA && defined HOPSCOTCH_LEAF_NODE)
+  auto get_info_and_encode_versions = [=, &entry, &metadata](int idx){
+    auto intermediate_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
+    auto [first_metadata_offset, new_len] = MetadataManager::get_offset_info(idx);
+    MetadataManager::encode_segment_metadata((char *)&entry, intermediate_segment_buffer, first_metadata_offset, 1,
+                                              LeafMetadata(metadata.h_version, 0, metadata.valid, metadata.sibling_ptr, metadata.fence_keys));
+    auto [raw_offset, raw_len, first_offset] = LeafVersionManager::get_offset_info(idx);
+    LeafVersionManager::encode_segment_versions(intermediate_segment_buffer, encoded_entry_buffer, first_offset, std::vector<int>{idx}, idx, idx, first_metadata_offset, new_len);
+    return std::make_pair(raw_offset, raw_len);
+  };
+  auto [raw_offset, raw_len] = get_info_and_encode_versions(idx);
+#else
+  auto [raw_offset, raw_len, first_offset] = VerMng::get_offset_info(idx);
+  VerMng::encode_entry_versions((char *)&entry, encoded_entry_buffer, first_offset);
+#endif
+  // write entry and unlock
+  if (idx == define::leafSpanSize - 1) {
+    memset(encoded_entry_buffer + raw_len, 0, sizeof(uint64_t));  // unlock
+    dsm->write_sync_without_sink(encoded_entry_buffer, node_addr + raw_offset, raw_len + sizeof(uint64_t), sink, &busy_waiting_queue);
+  }
+  else {
+    std::vector<RdmaOpRegion> rs(2);
+    rs[0].source = (uint64_t)encoded_entry_buffer;
+    rs[0].dest = (node_addr + raw_offset).to_uint64();
+    rs[0].size = raw_len;
+    rs[0].is_on_chip = false;
+
+    auto lock_offset = get_unlock_info(node_addr);
+    auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+    rs[1].source = (uint64_t)zero_buffer;
+    rs[1].dest = (node_addr + lock_offset).to_uint64();
+    rs[1].size = sizeof(uint64_t);
+    rs[1].is_on_chip = false;
+    dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
+  }
+  return;
+}
+#endif
 
 
 void RolexIndex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cnt, Request* req, int req_num) {
