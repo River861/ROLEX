@@ -343,7 +343,6 @@ re_fetch:
     if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
       leaves.clear();
       read_leaf_retry[dsm->getMyThreadID()] ++;
-      assert(false);
       goto re_fetch;
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
