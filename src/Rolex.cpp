@@ -193,7 +193,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // use a leaf copy to hop since it may fail
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
-  if (!hopscotch_insert_and_unlock(leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
+  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr{};
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -455,7 +455,7 @@ read_another:
 #ifdef HOPSCOTCH_LEAF_NODE
   for (int j = 0; j < (int)define::hopRange; ++ j) {
     kv_idx = (hash_idx + j) % define::leafSpanSize;
-    const auto& e = leaf->records[kv_idx];
+    auto& e = leaf->records[kv_idx];
     if (e.key == k) {
       key_is_found = true;
 #ifdef TREE_ENABLE_WRITE_COMBINING
@@ -733,7 +733,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
 
-  auto segment_size_r = std::min(define::hopRange, (int)define::leafSpanSize - hash_idx);
+  auto segment_size_r = std::min((int)define::hopRange, (int)define::leafSpanSize - hash_idx);
   auto segment_size_l = define::hopRange <= (int)define::leafSpanSize - hash_idx ? 0 : define::hopRange - ((int)define::leafSpanSize - hash_idx);
 
   auto [raw_offset_r, raw_len_r, first_offset_r] = VerMng::get_offset_info(hash_idx, segment_size_r);
@@ -793,7 +793,6 @@ re_fetch:
 
 
 void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock) {
-  try_write_segment[dsm->getMyThreadID()] ++;
   auto& records = leaf->records;
   const auto& metadata = leaf->metadata;
   if (l_idx <= r_idx) {  // update with one WRITE + unlock
@@ -825,7 +824,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
       rs[0].size = raw_len;
       rs[0].is_on_chip = false;
 
-      auto lock_offset = get_unlock_info(node_addr, true);
+      auto lock_offset = get_unlock_info(node_addr);
       auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
       rs[1].source = (uint64_t)zero_buffer;
       rs[1].dest = (node_addr + lock_offset).to_uint64();
@@ -835,7 +834,6 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     }
   }
   else {  // update with two WRITE + unlock  TODO: threshold => use one WRITE
-    write_two_segments[dsm->getMyThreadID()] ++;
     auto encoded_segment_buffer_1 = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto encoded_segment_buffer_2 = (dsm->get_rbuf(sink)).get_segment_buffer();
 #ifdef SCATTERED_LEAF_METADATA
@@ -956,7 +954,7 @@ void RolexIndex::run_coroutine(GenFunc gen_func, WorkFunc work_func, int coro_cn
 
 
 void RolexIndex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func) {
-  rolexIndex::Timer coro_timer;
+  rolex::Timer coro_timer;
   auto thread_id = dsm->getMyThreadID();
 
   while (!need_stop) {
