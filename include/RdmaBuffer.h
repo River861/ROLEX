@@ -9,7 +9,7 @@ class RdmaBuffer {
 private:
   // async, buffer safty
   static const int kCasBufferCnt    = 32;
-  static const int kLeafBufferCnt   = 256;
+  static const int kLeafBufferCnt   = 512;
   static const int kSegmentBufferCnt= 256;
   static const int kHeaderBufferCnt = 32;
   static const int kEntryBufferCnt  = 32;
