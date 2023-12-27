@@ -240,6 +240,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       syn_addr = leaf->metadata.synonym_ptr;
       write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
     }
+    unlock_node(insert_leaf_addr, sink);  // FUCK
   }
 #else
   for (i = 0; i < (int)define::leafSpanSize; ++ i) {
@@ -368,7 +369,6 @@ re_fetch:
     if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
       leaves.clear();
       read_leaf_retry[dsm->getMyThreadID()] ++;
-      printf("FUCK3\n");
       goto re_fetch;
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
@@ -421,7 +421,6 @@ re_read:
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
-    printf("FUCK2\n");
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
