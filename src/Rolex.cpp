@@ -211,7 +211,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       leaf->metadata.synonym_ptr = syn_addr;
       std::vector<RdmaOpRegion> rs(3);
       // write syn_leaf
-      rs[0].source = (uint64_t)syn_leaf;
+      auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
+      rs[0].source = (uint64_t)syn_leaf_buffer;
       rs[0].dest = syn_addr.to_uint64();
       rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
@@ -353,7 +355,7 @@ re_fetch:
     if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
       leaves.clear();
       read_leaf_retry[dsm->getMyThreadID()] ++;
-      printf("FUCK2\n");
+      printf("FUCK\n");
       goto re_fetch;
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
@@ -406,7 +408,6 @@ re_read:
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
-    printf("FUCK1\n");
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
