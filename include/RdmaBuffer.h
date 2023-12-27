@@ -9,7 +9,6 @@ class RdmaBuffer {
 private:
   // async, buffer safty
   static const int kCasBufferCnt    = 32;
-  static const int kPageBufferCnt   = 32;
   static const int kLeafBufferCnt   = 256;
   static const int kSegmentBufferCnt= 256;
   static const int kHeaderBufferCnt = 32;
@@ -41,8 +40,7 @@ public:
     // setup buffer partition
     this->buffer    = buffer;
     cas_buffer      = (uint64_t *)buffer;
-    internal_buffer = (char     *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
-    leaf_buffer     = (char     *)((char *)internal_buffer + define::allocationInternalSize * kPageBufferCnt);
+    leaf_buffer     = (char     *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
     segment_buffer  = (char     *)((char *)leaf_buffer     + define::allocationLeafSize     * kLeafBufferCnt);
     metadata_buffer = (char     *)((char *)segment_buffer  + define::allocationLeafSize     * kSegmentBufferCnt);
     entry_buffer    = (char     *)((char *)metadata_buffer + define::bufferMetadataSize     * kHeaderBufferCnt);
@@ -64,11 +62,6 @@ public:
     return cas_buffer + cas_buffer_cur;
   }
 
-  char *get_internal_buffer() {
-    internal_buffer_cur = (internal_buffer_cur + 1) % kPageBufferCnt;
-    return internal_buffer + internal_buffer_cur * define::allocationInternalSize;
-  }
-
   char *get_leaf_buffer() {
     leaf_buffer_cur = (leaf_buffer_cur + 1) % kLeafBufferCnt;
     return leaf_buffer + leaf_buffer_cur * define::allocationLeafSize;
@@ -77,11 +70,6 @@ public:
   char *get_segment_buffer() {
     segment_buffer_cur = (segment_buffer_cur + 1) % kSegmentBufferCnt;
     return segment_buffer + segment_buffer_cur * define::allocationLeafSize;
-  }
-
-  template<class NODE>
-  char *get_node_buffer() {
-    return NODE::IS_LEAF ? get_leaf_buffer() : get_internal_buffer();
   }
 
   char *get_metadata_buffer() {

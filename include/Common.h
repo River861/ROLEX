@@ -158,6 +158,7 @@ constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 // Rdma Buffer
 constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;
 constexpr int64_t  kPerCoroRdmaBuf    = kPerThreadRdmaBuf / MAX_CORO_NUM;
+constexpr uint32_t bufferEntrySize    = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize, versionSize);
 constexpr uint32_t bufferMetadataSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize, versionSize);
 
 // On-chip Memory

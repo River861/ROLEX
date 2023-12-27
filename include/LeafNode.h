@@ -87,4 +87,25 @@ inline bool operator==(const LeafNode &lhs, const LeafNode &rhs) {
   return !strncmp((char *)&lhs, (char*)&rhs, sizeof(LeafNode));
 }
 
+
+/* -------------Auxiliary Structures------------- */
+class LeafEntryGroup {
+public:
+  LeafMetadata metadata;
+  LeafEntry records[define::hopRange];
+} __attribute__((packed));
+
+static_assert(sizeof(LeafEntryGroup) == sizeof(LeafMetadata) + sizeof(LeafEntry) * define::hopRange);
+
+
+/* Scattered Leaf Node: [lock, leaf metadata, [scattered metadata, KV, KV...] * n] */
+class ScatteredLeafNode {  // must be cacheline-align
+public:
+  LeafEntryGroup record_groups[define::entryGroupNum];
+} __attribute__((packed));
+
+static_assert(sizeof(ScatteredLeafNode) == sizeof(LeafEntryGroup) * define::entryGroupNum);
+
+#endif // _LEAF_NODE_H_
+
 #endif // _LEAF_NODE_H_
