@@ -286,12 +286,12 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, sink);
 #endif
   }
+  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
 
 insert_finish:
 #ifdef TREE_ENABLE_WRITE_COMBINING
   local_lock_table->release_local_write_lock(k, lock_res);
 #endif
-  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
   return;
 }
 
@@ -518,12 +518,12 @@ read_another:
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
 #endif
   }
+  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
 
 update_finish:
 #ifdef TREE_ENABLE_WRITE_COMBINING
   local_lock_table->release_local_write_lock(k, lock_res);
 #endif
-  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
   return;
 }
 
@@ -556,12 +556,12 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   search_res = ret;
   read_leaf_cnt += cnt;
   }
+  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
 
 search_finish:
 #ifdef TREE_ENABLE_READ_DELEGATION
   local_lock_table->release_local_read_lock(k, lock_res, search_res, v);  // handover the ret leaf addr
 #endif
-  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
   return search_res;
 }
 
