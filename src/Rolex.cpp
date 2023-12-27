@@ -157,7 +157,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, std::vector<bool>((int)leaf_addrs.size(), true), sink);
+  hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, std::vector<bool>((int)leaf_addrs.size(), false), sink);
 #else
   fetch_nodes(leaf_addrs, _, sink);
 #endif
@@ -634,7 +634,7 @@ re_read:
     leaf_read_syn[dsm->getMyThreadID()] ++;
     read_leaf_cnt += append_leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
-    hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, std::vector<bool>((int)append_leaf_addrs.size(), false), sink);
+    hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, std::vector<bool>((int)append_leaf_addrs.size(), true), sink);
 #else
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
 #endif
