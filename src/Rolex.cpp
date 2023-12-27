@@ -483,7 +483,7 @@ read_another:
   auto& records = leaf->records;
   bool key_is_found = false;
 #ifdef HOPSCOTCH_LEAF_NODE
-  if (leaf_addr == lock_leaf_addr) {  // is_syn
+  if (leaf_addr != lock_leaf_addr) {  // is_syn
     for (kv_idx = 0; kv_idx < define::leafSpanSize; ++ kv_idx) {
       auto& e = records[kv_idx];
       if (e.key == define::kkeyNull) break;
