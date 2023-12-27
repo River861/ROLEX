@@ -525,7 +525,6 @@ read_another:
   }
 #endif
   if (!key_is_found) {  // key is moved to the synonym leaf
-    assert(leaf_addr == lock_leaf_addr);
     assert(leaf->metadata.synonym_ptr != GlobalAddress::Null());
     leaf_addr = leaf->metadata.synonym_ptr;
     leaf_read_syn[dsm->getMyThreadID()] ++;
