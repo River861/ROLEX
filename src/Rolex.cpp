@@ -205,22 +205,27 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       unlock_node(insert_leaf_addr, sink);
       goto insert_finish;
     }
-    if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
+    if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       syn_leaf_addrs[insert_leaf_addr] = syn_addr;
       leaf->metadata.synonym_ptr = syn_addr;
-      // write syn_pointer and unlock
       std::vector<RdmaOpRegion> rs(2);
-      rs[0].source = (uint64_t)leaf;
-      rs[0].dest = insert_leaf_addr.to_uint64();
-      rs[0].size = define::leafMetadataSize;
+      // write syn_leaf
+      rs[0].source = (uint64_t)syn_leaf;
+      rs[0].dest = syn_addr.to_uint64();
+      rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
+      // write syn_pointer
+      rs[1].source = (uint64_t)leaf;
+      rs[1].dest = insert_leaf_addr.to_uint64();
+      rs[1].size = define::leafMetadataSize;
+      rs[1].is_on_chip = false;
       // unlock
       auto lock_offset = get_unlock_info(insert_leaf_addr);
       auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
-      rs[1].source = (uint64_t)zero_buffer;
-      rs[1].dest = (insert_leaf_addr + lock_offset).to_uint64();
-      rs[1].size = sizeof(uint64_t);
-      rs[1].is_on_chip = false;
+      rs[2].source = (uint64_t)zero_buffer;
+      rs[2].dest = (insert_leaf_addr + lock_offset).to_uint64();
+      rs[2].size = sizeof(uint64_t);
+      rs[2].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
     }
     else {  // old syn leaf: write syn leaf and unlock
