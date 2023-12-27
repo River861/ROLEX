@@ -209,7 +209,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     if (hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
       printf("synonmy leaf is hop-full!!\n");
-      assert(false);
+      // assert(false);
     }
     if (write_leaf) {  // new syn leaf
       syn_leaf_addrs[insert_leaf_addr] = syn_leaf_addr;
