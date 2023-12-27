@@ -602,7 +602,7 @@ re_read:
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
   std::vector<bool> is_syn;
-  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) is_syn.emplace(leaf_addrs[i] == locked_leaf_addrs[i]);
+  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) is_syn.emplace_back(leaf_addrs[i] == locked_leaf_addrs[i]);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, is_syn, sink, false);
 #else
   fetch_nodes(leaf_addrs, leaves, sink, false);
@@ -803,7 +803,7 @@ re_fetch:
   raw_buffers.clear();
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
-    const auto& leaf_addr = leaf_addr[i];
+    const auto& leaf_addr = leaf_addrs[i];
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
     if (is_syn[i]) {  // read the whole node
