@@ -331,6 +331,7 @@ re_fetch:
     if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
       leaves.clear();
       read_leaf_retry[dsm->getMyThreadID()] ++;
+      printf("FUCK\n");
       goto re_fetch;
     }
     leaves.emplace_back((LeafNode*) leaf_buffer);
@@ -625,7 +626,7 @@ re_read:
   range query
   DO NOT support coroutines currently
 */
-void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)
+void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)  TODO: HOPSCOTCH_LEAF_NODE
   assert(dsm->is_register());
   before_operation(nullptr);
 
@@ -663,8 +664,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
   assert(leaf_addrs.size() == leaves.size());
   for (const auto& leaf : leaves) {
     for (const auto& e : leaf->records) {
-      if (e.key == define::kkeyNull) break;
-      if (e.key >= from && e.key < to) {
+      if (e.key != define::kkeyNull && e.key >= from && e.key < to) {
         ret[e.key] = e.value;
       }
     }
