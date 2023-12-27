@@ -753,7 +753,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
 
 
 #ifdef HOPSCOTCH_LEAF_NODE
-bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock) {
+bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink) {
   auto& records = leaf->records;
   auto get_entry = [=, &records](int logical_idx) -> LeafEntry& {
     return records[(logical_idx + define::leafSpanSize) % define::leafSpanSize];
@@ -777,7 +777,7 @@ next_hop:
   if (j < hash_idx + (int)define::hopRange) {
     get_entry(j).update(k, v);
     get_entry(hash_idx).set_hop_bit(j - hash_idx);
-    segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, sink, need_unlock);
+    segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, sink);
     return true;
   }
   for (int offset = define::hopRange - 1; offset > 0; -- offset) {
@@ -893,7 +893,7 @@ re_fetch:
 }
 
 
-void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock) {
+void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink) {
   auto& records = leaf->records;
   const auto& metadata = leaf->metadata;
   if (l_idx <= r_idx) {  // update with one WRITE + unlock
@@ -911,10 +911,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     VerMng::encode_segment_versions((char *)&records[l_idx], encoded_segment_buffer, first_offset, hopped_idxes, l_idx, r_idx);
 #endif
     // write segment and unlock
-    if (!need_unlock) {
-      dsm->write_sync_without_sink(encoded_segment_buffer, node_addr + raw_offset, raw_len, sink, &busy_waiting_queue);
-    }
-    else if (r_idx == define::leafSpanSize - 1) {
+    if (r_idx == define::leafSpanSize - 1) {
       memset(encoded_segment_buffer + raw_len, 0, sizeof(uint64_t));  // unlock
       dsm->write_sync_without_sink(encoded_segment_buffer, node_addr + raw_offset, raw_len + sizeof(uint64_t), sink, &busy_waiting_queue);
     }
@@ -965,15 +962,11 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     rs[0].size = raw_len_1;
     rs[0].is_on_chip = false;
 
-    if (!need_unlock) {
-      rs[1].size = raw_len_2;
-    }
-    else {
-      memset(encoded_segment_buffer_2 + raw_len_2, 0, sizeof(uint64_t));  // unlock
-      rs[1].size = raw_len_2 + sizeof(uint64_t);
-    }
+
+    memset(encoded_segment_buffer_2 + raw_len_2, 0, sizeof(uint64_t));  // unlock
     rs[1].source = (uint64_t)encoded_segment_buffer_2;
     rs[1].dest = (node_addr + raw_offset_2).to_uint64();
+    rs[1].size = raw_len_2 + sizeof(uint64_t);
     rs[1].is_on_chip = false;
     dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
   }
