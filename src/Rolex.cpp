@@ -130,6 +130,8 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
+  int read_leaf_cnt = 0;
+
   // handover
   bool write_handover = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
@@ -149,10 +151,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
-  range_cnt[dsm->getMyThreadID()][r - l + 1] ++;
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
+  read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink);
@@ -166,15 +168,18 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
+    read_leaf_cnt ++;
     fetch_node(insert_leaf_addr, leaf, sink, false);
     if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
+      read_leaf_cnt ++;
       fetch_node(syn_leaf_addrs[insert_leaf_addr], syn_leaf, sink);
     }
   }
   else {
     std::vector<LeafNode*> two_leaves;
+    read_leaf_cnt += 2;
     fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
     leaf = two_leaves.front();
     syn_leaf = two_leaves.back();
@@ -286,6 +291,7 @@ insert_finish:
 #ifdef TREE_ENABLE_WRITE_COMBINING
   local_lock_table->release_local_write_lock(k, lock_res);
 #endif
+  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
   return;
 }
 
@@ -431,6 +437,8 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
 
+  int read_leaf_cnt = 0;
+
   // handover
   bool write_handover = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
@@ -451,13 +459,16 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   Value old_v;
-  auto [ret, leaf_addr, lock_leaf_addr] = _search(k, old_v, sink);
+  int cnt;
+  auto [ret, leaf_addr, lock_leaf_addr, cnt] = _search(k, old_v, sink);
+  read_leaf_cnt += cnt;
   UNUSED(old_v);
   assert(ret);
   // 2. Fine-grained locking and re-read
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
 read_another:
+  read_leaf_cnt ++;
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_node(leaf_addr, hash_idx, leaf, sink);
@@ -513,6 +524,7 @@ update_finish:
 #ifdef TREE_ENABLE_WRITE_COMBINING
   local_lock_table->release_local_write_lock(k, lock_res);
 #endif
+  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
   return;
 }
 
@@ -520,6 +532,8 @@ update_finish:
 bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
+
+  int read_leaf_cnt = 0;
 
   // handover
   bool search_res = false;
@@ -539,22 +553,25 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   }
 
   {
-  auto [ret, _1, _2] = _search(k, v, sink);
+  auto [ret, _1, _2, cnt] = _search(k, v, sink);
   search_res = ret;
+  read_leaf_cnt += cnt;
   }
 
 search_finish:
 #ifdef TREE_ENABLE_READ_DELEGATION
   local_lock_table->release_local_read_lock(k, lock_res, search_res, v);  // handover the ret leaf addr
 #endif
+  range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
   return search_res;
 }
 
 
-std::tuple<bool, GlobalAddress, GlobalAddress> RolexIndex::_search(const Key &k, Value &v, CoroPull* sink) {
+std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Key &k, Value &v, CoroPull* sink) {
+  int read_leaf_cnt = 0;
+
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
-  range_cnt[dsm->getMyThreadID()][r - l + 1] ++;
 re_read:
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> leaves;
@@ -571,6 +588,7 @@ re_read:
       locked_leaf_addrs.emplace_back(leaf_addr);
     }
   }
+  read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
@@ -593,6 +611,7 @@ re_read:
   }
   if (!append_leaf_addrs.empty()) {
     leaf_read_syn[dsm->getMyThreadID()] ++;
+    read_leaf_cnt += append_leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
     hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, sink);
 #else
@@ -627,12 +646,12 @@ re_read:
       if (e.key == define::kkeyNull) break;
       if (e.key == k) {
         v = e.value;
-        return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i]);
+        return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
       }
     }
 #endif
   }
-  return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null());
+  return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null(), read_leaf_cnt);
 }
 
 

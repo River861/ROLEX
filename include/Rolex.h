@@ -64,7 +64,7 @@ private:
   GlobalAddress get_leaf_address(int leaf_idx);
 
   // high-level functions
-  std::tuple<bool, GlobalAddress, GlobalAddress> _search(const Key &k, Value &v, CoroPull* sink);  // return (key_is_found, leaf_addr, locked_leaf_addr)
+  std::tuple<bool, GlobalAddress, GlobalAddress, int> _search(const Key &k, Value &v, CoroPull* sink);  // return (key_is_found, leaf_addr, locked_leaf_addr)
 
   // low-level functions
   GlobalAddress insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink);  // return syn_addr if allocating a new synonym leaf
