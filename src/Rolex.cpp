@@ -438,6 +438,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   Value old_v;
   auto [ret, leaf_addr, lock_leaf_addr] = _search(k, old_v, sink);
   UNUSED(old_v);
+  assert(ret);
   // 2. Fine-grained locking and re-read
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
