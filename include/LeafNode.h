@@ -107,5 +107,3 @@ public:
 static_assert(sizeof(ScatteredLeafNode) == sizeof(LeafEntryGroup) * define::entryGroupNum);
 
 #endif // _LEAF_NODE_H_
-
-#endif // _LEAF_NODE_H_

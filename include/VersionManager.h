@@ -4,7 +4,6 @@
 #include "Common.h"
 #include "Metadata.h"
 #include "LeafNode.h"
-#include "InternalNode.h"
 
 #include <vector>
 
