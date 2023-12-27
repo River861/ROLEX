@@ -474,7 +474,7 @@ read_another:
   read_leaf_cnt ++;
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_node(leaf_addr, hash_idx, leaf, leaf_addr == lock_leaf_addr, sink);
+  hopscotch_fetch_node(leaf_addr, hash_idx, leaf, leaf_addr != lock_leaf_addr, sink);
 #else
   fetch_node(leaf_addr, leaf, sink);
 #endif
@@ -611,7 +611,7 @@ re_read:
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
   std::vector<bool> is_syn;
-  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) is_syn.emplace_back(leaf_addrs[i] == locked_leaf_addrs[i]);
+  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) is_syn.emplace_back(leaf_addrs[i] != locked_leaf_addrs[i]);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, is_syn, sink, false);
 #else
   fetch_nodes(leaf_addrs, leaves, sink, false);
