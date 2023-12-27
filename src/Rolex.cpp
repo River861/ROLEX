@@ -459,7 +459,6 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   Value old_v;
-  int cnt;
   auto [ret, leaf_addr, lock_leaf_addr, cnt] = _search(k, old_v, sink);
   read_leaf_cnt += cnt;
   UNUSED(old_v);
