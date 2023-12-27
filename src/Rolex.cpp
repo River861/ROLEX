@@ -98,7 +98,6 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   };
 re_acquire:
   if (!acquire_lock(node_addr)){
-    printf("FUCK 1\n");
     if (sink != nullptr) {
       busy_waiting_queue.push(sink->get());
       (*sink)();

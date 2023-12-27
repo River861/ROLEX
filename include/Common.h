@@ -19,9 +19,8 @@
 
 // TODO
 // DEBUG-TREE
-#define HOPSCOTCH_LEAF_NODE
+// #define HOPSCOTCH_LEAF_NODE
 // #define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
-// #define SIBLING_BASED_VALIDATION       // !!NOTE: should be turned on together with SCATTERED_LEAF_METADATA
 // #define SPECULATIVE_READ
 // DEBUG-SCAN (can boost small-length scan)
 // #define FINE_GRAINED_SCAN
