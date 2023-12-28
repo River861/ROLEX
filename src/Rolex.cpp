@@ -228,7 +228,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
       // write syn_pointer and unlock
-      printf("FUCK3\n");
+      if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
+        printf("FUCK3\n");
+      }
       leaf->metadata.synonym_ptr = syn_addr;
       auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
       VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
