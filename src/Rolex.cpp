@@ -213,33 +213,33 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       assert(syn_leaf != nullptr);
       syn_leaf_addrs[insert_leaf_addr] = syn_addr;
       leaf->metadata.synonym_ptr = syn_addr;
-      // std::vector<RdmaOpRegion> rs(3);
-      // // write syn_leaf
-      // auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      // VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
-      // rs[0].source = (uint64_t)syn_leaf_buffer;
-      // rs[0].dest = syn_addr.to_uint64();
-      // rs[0].size = define::transLeafSize;
-      // rs[0].is_on_chip = false;
-      // // write syn_pointer
-      // rs[1].source = (uint64_t)leaf;
-      // rs[1].dest = insert_leaf_addr.to_uint64();
-      // rs[1].size = define::leafMetadataSize;
-      // rs[1].is_on_chip = false;
-      // // unlock
-      // auto lock_offset = get_unlock_info(insert_leaf_addr);
-      // auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
-      // rs[2].source = (uint64_t)zero_buffer;
-      // rs[2].dest = (insert_leaf_addr + lock_offset).to_uint64();
-      // rs[2].size = sizeof(uint64_t);
-      // rs[2].is_on_chip = false;
-      // dsm->write_batches_sync(rs, sink);
-      unlock_node(insert_leaf_addr, sink);
+      std::vector<RdmaOpRegion> rs(3);
+      // write syn_leaf
+      auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
+      rs[0].source = (uint64_t)syn_leaf_buffer;
+      rs[0].dest = syn_addr.to_uint64();
+      rs[0].size = define::transLeafSize;
+      rs[0].is_on_chip = false;
+      // write syn_pointer
+      rs[1].source = (uint64_t)leaf;
+      rs[1].dest = insert_leaf_addr.to_uint64();
+      rs[1].size = define::leafMetadataSize;
+      rs[1].is_on_chip = false;
+      // unlock
+      auto lock_offset = get_unlock_info(insert_leaf_addr);
+      auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+      rs[2].source = (uint64_t)zero_buffer;
+      rs[2].dest = (insert_leaf_addr + lock_offset).to_uint64();
+      rs[2].size = sizeof(uint64_t);
+      rs[2].is_on_chip = false;
+      dsm->write_batches_sync(rs, sink);
     }
     else {  // old syn leaf: write syn leaf and unlock
       assert(syn_leaf != nullptr);
       syn_addr = leaf->metadata.synonym_ptr;
-      write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
+      // write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
+      unlock_node(insert_leaf_addr, sink);
     }
   }
 #else
