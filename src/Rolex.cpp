@@ -210,7 +210,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       assert(syn_leaf != nullptr);
-      syn_leaf_addrs[insert_leaf_addr] = syn_addr;
       leaf->metadata.synonym_ptr = syn_addr;
       std::vector<RdmaOpRegion> rs(3);
       // write syn_leaf
@@ -233,6 +232,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[2].size = sizeof(uint64_t);
       rs[2].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
+      syn_leaf_addrs[insert_leaf_addr] = syn_addr;
     }
     else {  // old syn leaf: write syn leaf and unlock
       assert(syn_leaf != nullptr);
@@ -349,7 +349,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
   }
-// re_fetch:
+re_fetch:
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     const auto& leaf_addr = leaf_addrs[i];
@@ -365,11 +365,11 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   // consistency check
   for (auto raw_buffer : raw_buffers) {
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    // if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-    //   leaves.clear();
-    //   read_leaf_retry[dsm->getMyThreadID()] ++;
-    //   goto re_fetch;
-    // }
+    if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+      leaves.clear();
+      read_leaf_retry[dsm->getMyThreadID()] ++;
+      goto re_fetch;
+    }
     leaves.emplace_back((LeafNode*) leaf_buffer);
   }
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
@@ -415,13 +415,13 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   leaf = new (leaf_buffer) LeafNode;
-// re_read:
+re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
-  // if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-  //   read_leaf_retry[dsm->getMyThreadID()] ++;
-  //   goto re_read;
-  // }
+  if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+    read_leaf_retry[dsm->getMyThreadID()] ++;
+    goto re_read;
+  }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
