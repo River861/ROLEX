@@ -645,13 +645,13 @@ re_read:
     read_leaf_cnt += append_leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
     hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, std::vector<bool>((int)append_leaf_addrs.size(), true), sink);
+    for (int i = 0; i < (int)append_leaf_addrs.size(); ++ i) is_syn.emplace_back(false);
 #else
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
 #endif
     leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
     locked_leaf_addrs.insert(locked_leaf_addrs.end(), append_locked_leaf_addrs.begin(), append_locked_leaf_addrs.end());
-    for (int i = 0; i < (int)append_leaf_addrs.size(); ++ i) is_syn.emplace_back(false);
   }
   // 3. Search the fetched leaves
   assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
