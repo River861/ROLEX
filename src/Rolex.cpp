@@ -218,6 +218,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
+    debug_lock.lock();
+    std::cout << "[FUCK] syn_addr=" << syn_addr << std::endl;
+    debug_lock.unlock();
     if (syn_addr == GlobalAddress::Max()) {  // existing key
       unlock_node(insert_leaf_addr, sink);
     }
