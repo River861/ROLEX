@@ -180,7 +180,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
-      // fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
+      fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
     }
   }
   else {
