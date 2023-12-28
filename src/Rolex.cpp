@@ -232,7 +232,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[2].size = sizeof(uint64_t);
       rs[2].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
-      syn_leaf_addrs[insert_leaf_addr] = syn_addr;
     }
     else {  // old syn leaf: write syn leaf and unlock
       assert(syn_leaf != nullptr);
