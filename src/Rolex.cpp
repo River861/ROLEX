@@ -187,6 +187,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     std::vector<LeafNode*> two_leaves;
     read_leaf_cnt += 2;
     fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
+    assert(two_leaves.size() == 2);
     leaf = two_leaves.front();
     syn_leaf = two_leaves.back();
   }
@@ -308,12 +309,11 @@ insert_finish:
 
 
 GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink) {
-  GlobalAddress syn_leaf_addr{};
   if (!syn_leaf) {  // allocate a new synonym leaf
-    syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
     auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     syn_leaf = new (syn_buffer) LeafNode;
     syn_leaf->records[0].update(k, v);
+    return dsm->alloc(define::allocationLeafSize);
   }
   else {  // store in the synonym leaf
     auto& syn_records = syn_leaf->records;
@@ -341,7 +341,7 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
     if (j > 0) for (int k = j - 1; k >= i; -- k) syn_records[k + 1] = syn_records[k];
     syn_records[i].update(k, v);
   }
-  return syn_leaf_addr;
+  return GlobalAddress::Null();
 }
 
 
