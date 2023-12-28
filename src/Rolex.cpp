@@ -355,7 +355,9 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   }
 re_fetch:
   rs.clear();
-  for (const auto& leaf_addr : leaf_addrs) {
+  for (int i = 0; i < leaf_addrs.size(); ++ i) {
+    const auto& leaf_addr = leaf_addrs[i];
+    const auto& raw_buffer = raw_buffers[i];
     RdmaOpRegion r;
     r.source     = (uint64_t)raw_buffer;
     r.dest       = leaf_addr.to_uint64();
