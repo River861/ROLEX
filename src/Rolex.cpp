@@ -37,7 +37,7 @@ thread_local std::vector<CoroPush> RolexIndex::workers;
 thread_local CoroQueue RolexIndex::busy_waiting_queue;
 
 // Auxiliary structure for simplicity
-thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::syn_leaf_addrs;
+thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::coro_syn_leaf_addrs[MAX_CORO_NUM];
 
 
 RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
@@ -134,6 +134,7 @@ void RolexIndex::unlock_node(const GlobalAddress &node_addr, CoroPull* sink, boo
 void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
 
   int read_leaf_cnt = 0;
 
@@ -213,34 +214,34 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       assert(syn_leaf != nullptr);
       // syn_leaf_addrs[insert_leaf_addr] = syn_addr;  // GUB: cause dead lock
       leaf->metadata.synonym_ptr = syn_addr;
-      std::vector<RdmaOpRegion> rs(3);
-      // write syn_leaf
-      auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
-      rs[0].source = (uint64_t)syn_leaf_buffer;
-      rs[0].dest = syn_addr.to_uint64();
-      rs[0].size = define::transLeafSize;
-      rs[0].is_on_chip = false;
-      // write syn_pointer
-      rs[1].source = (uint64_t)leaf;
-      rs[1].dest = insert_leaf_addr.to_uint64();
-      rs[1].size = define::leafMetadataSize;
-      rs[1].is_on_chip = false;
-      // unlock
-      auto lock_offset = get_unlock_info(insert_leaf_addr);
-      auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
-      rs[2].source = (uint64_t)zero_buffer;
-      rs[2].dest = (insert_leaf_addr + lock_offset).to_uint64();
-      rs[2].size = sizeof(uint64_t);
-      rs[2].is_on_chip = false;
-      dsm->write_batches_sync(rs, sink);
-      // unlock_node(insert_leaf_addr, sink);
+      // std::vector<RdmaOpRegion> rs(3);
+      // // write syn_leaf
+      // auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      // VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
+      // rs[0].source = (uint64_t)syn_leaf_buffer;
+      // rs[0].dest = syn_addr.to_uint64();
+      // rs[0].size = define::transLeafSize;
+      // rs[0].is_on_chip = false;
+      // // write syn_pointer
+      // rs[1].source = (uint64_t)leaf;
+      // rs[1].dest = insert_leaf_addr.to_uint64();
+      // rs[1].size = define::leafMetadataSize;
+      // rs[1].is_on_chip = false;
+      // // unlock
+      // auto lock_offset = get_unlock_info(insert_leaf_addr);
+      // auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+      // rs[2].source = (uint64_t)zero_buffer;
+      // rs[2].dest = (insert_leaf_addr + lock_offset).to_uint64();
+      // rs[2].size = sizeof(uint64_t);
+      // rs[2].is_on_chip = false;
+      // dsm->write_batches_sync(rs, sink);
+      unlock_node(insert_leaf_addr, sink);
     }
     else {  // old syn leaf: write syn leaf and unlock
       assert(syn_leaf != nullptr);
       syn_addr = leaf->metadata.synonym_ptr;
-      write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
-      // unlock_node(insert_leaf_addr, sink);
+      // write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
+      unlock_node(insert_leaf_addr, sink);
     }
   }
 #else
@@ -378,7 +379,7 @@ re_fetch:
   }
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
-      syn_leaf_addrs[leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
+      coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
     }
   }
   return;
@@ -427,7 +428,7 @@ re_read:
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
-    syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
+    coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
   return;
 }
@@ -602,6 +603,7 @@ search_finish:
 
 
 std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Key &k, Value &v, CoroPull* sink) {
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
   int read_leaf_cnt = 0;
 
   // 1. Read predict leaves and the synonmy leaves
@@ -710,6 +712,7 @@ re_read:
 void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)  TODO: HOPSCOTCH_LEAF_NODE
   assert(dsm->is_register());
   before_operation(nullptr);
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
 
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_range_from_cache(from, to);
@@ -889,7 +892,7 @@ re_fetch:
   // update syn_leaf_addrs
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
-      syn_leaf_addrs[leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
+      coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
     }
   }
   return;
