@@ -343,15 +343,13 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
 
-  for (const auto& leaf_addr : leaf_addrs) {
-    auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    raw_buffers.emplace_back(raw_buffer);
-  }
 re_fetch:
+  raw_buffers.clear();
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     const auto& leaf_addr = leaf_addrs[i];
-    const auto& raw_buffer = raw_buffers[i];
+    auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    raw_buffers.emplace_back(raw_buffer);
     RdmaOpRegion r;
     r.source     = (uint64_t)raw_buffer;
     r.dest       = leaf_addr.to_uint64();
@@ -410,10 +408,10 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
 void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink, bool update_local_slt) {
   try_read_leaf[dsm->getMyThreadID()] ++;
 
+re_read:
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   leaf = new (leaf_buffer) LeafNode;
-re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
