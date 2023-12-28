@@ -208,7 +208,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     // load factor
     split_hopscotch[dsm->getMyThreadID()] ++;
     int non_empty_entry_cnt = 0;
-    for (const auto& e : leaf->records) if (e.key == define::kkeyNull) ++ non_empty_entry_cnt;
+    for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
     load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
