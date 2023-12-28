@@ -828,6 +828,7 @@ re_fetch:
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     const auto& leaf_addr = leaf_addrs[i];
+    const auto& raw_buffer = raw_buffers[i];
     if (is_syn[i]) {  // read the whole node
       RdmaOpRegion r;
       r.source     = (uint64_t)raw_buffer;
