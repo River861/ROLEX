@@ -184,12 +184,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
   }
   else {
-    std::vector<LeafNode*> two_leaves;
-    read_leaf_cnt += 2;
-    fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
-    assert(two_leaves.size() == 2);
-    leaf = two_leaves.front();
-    syn_leaf = two_leaves.back();
+    unlock_node(insert_leaf_addr, sink);
+    goto insert_finish;
+    // std::vector<LeafNode*> two_leaves;
+    // read_leaf_cnt += 2;
+    // fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
+    // assert(two_leaves.size() == 2);
+    // leaf = two_leaves.front();
+    // syn_leaf = two_leaves.back();
   }
 
   // 3. Insert k locally
@@ -210,7 +212,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       assert(syn_leaf != nullptr);
-      syn_leaf_addrs[insert_leaf_addr] = syn_addr;  // GUB: cause dead lock
+      syn_leaf_addrs[insert_leaf_addr] = syn_addr;  // BUG: cause dead lock
       leaf->metadata.synonym_ptr = syn_addr;
       // std::vector<RdmaOpRegion> rs(3);
       // // write syn_leaf
