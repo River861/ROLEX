@@ -422,9 +422,9 @@ re_read:
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
-    debug_lock.lock();
-    std::cout << "[FUCK] leaf_addr=" << leaf_addr << std::endl;
-    debug_lock.unlock();
+    // debug_lock.lock();
+    // std::cout << "[FUCK] leaf_addr=" << leaf_addr << std::endl;
+    // debug_lock.unlock();
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
