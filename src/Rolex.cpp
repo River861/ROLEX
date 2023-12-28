@@ -64,8 +64,8 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
     read_leaf_retry[tid]         = 0;
     leaf_read_syn[tid]           = 0;
     try_read_leaf[tid]           = 0;
-    load_factor_sum[tid]         = 0;
-    split_hopscotch[tid]         = 0;
+    // load_factor_sum[tid]         = 0;
+    // split_hopscotch[tid]         = 0;
     range_cnt[tid].clear();
     need_clear[tid]              = false;
   }
