@@ -7,7 +7,7 @@
 #include "city.h"
 
 
-uint32_t murmurhash(const void* key, int len, uint32_t seed) {
+inline uint32_t murmurhash(const void* key, int len, uint32_t seed) {
     const uint32_t c1 = 0xcc9e2d51;
     const uint32_t c2 = 0x1b873593;
     const uint32_t r1 = 15;
@@ -73,7 +73,7 @@ inline uint64_t get_hashed_local_lock_index(const GlobalAddress& addr) {
 
 inline uint64_t get_hashed_leaf_entry_index(const Key& k) {
   // return CityHash64((char *)&k, sizeof(k)) % define::leafSpanSize;
-  return murmurhash((void *)&k, sizeof(k), 0x123) % define::leafSpanSize;
+  return (uint64_t)murmurhash((void *)&k, sizeof(k), 0x123) % define::leafSpanSize;
 }
 
 #define HASH_TABLE_SIZE 1000000
