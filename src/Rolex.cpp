@@ -194,7 +194,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     syn_leaf = two_leaves.back();
   }
 
-  // 3. Insert k locally
+  // 3. Insert k
   assert(leaf != nullptr);
   auto& records = leaf->records;
   int i;
@@ -353,7 +353,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
   }
-re_fetch:
+// re_fetch:
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     const auto& leaf_addr = leaf_addrs[i];
@@ -369,11 +369,11 @@ re_fetch:
   // consistency check
   for (auto raw_buffer : raw_buffers) {
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-      leaves.clear();
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      goto re_fetch;
-    }
+    // if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+    //   leaves.clear();
+    //   read_leaf_retry[dsm->getMyThreadID()] ++;
+    //   goto re_fetch;
+    // }
     leaves.emplace_back((LeafNode*) leaf_buffer);
   }
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
