@@ -205,11 +205,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
   if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
-    // load factor
-    split_hopscotch[dsm->getMyThreadID()] ++;
-    int non_empty_entry_cnt = 0;
-    for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
-    load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -217,6 +212,11 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
       syn_leaf = new (syn_buffer) LeafNode;
       write_leaf = true;
+      // calculate load factor
+      split_hopscotch[dsm->getMyThreadID()] ++;
+      int non_empty_entry_cnt = 0;
+      for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
+      load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
     }
     if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
       printf("synonmy leaf is hop-full!!\n");
