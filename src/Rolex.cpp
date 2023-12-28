@@ -175,11 +175,17 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
     read_leaf_cnt ++;
+    if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
+      printf("FUCK1\n");
+    }
     fetch_node(insert_leaf_addr, leaf, sink, false);
     if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
+      if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
+        printf("FUCK2\n");
+      }
       fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
     }
   }
@@ -213,7 +219,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       assert(syn_leaf != nullptr);
-      std::vector<RdmaOpRegion> rs(1);
+      std::vector<RdmaOpRegion> rs(2);
       // write syn_leaf
       auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
       VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
@@ -416,9 +422,9 @@ re_read:
   // consistency check
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
-    // debug_lock.lock();
-    // std::cout << "[FUCK] leaf_addr=" << leaf_addr << std::endl;
-    // debug_lock.unlock();
+    debug_lock.lock();
+    std::cout << "[FUCK] leaf_addr=" << leaf_addr << std::endl;
+    debug_lock.unlock();
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
