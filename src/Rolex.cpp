@@ -414,10 +414,10 @@ re_read:
   leaf = new (leaf_buffer) LeafNode;
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
-  if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-    read_leaf_retry[dsm->getMyThreadID()] ++;
-    goto re_read;
-  }
+  // if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+  //   read_leaf_retry[dsm->getMyThreadID()] ++;
+  //   goto re_read;
+  // }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
