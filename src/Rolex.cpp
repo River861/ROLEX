@@ -213,7 +213,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       assert(syn_leaf != nullptr);
-      std::vector<RdmaOpRegion> rs(2);
+      std::vector<RdmaOpRegion> rs(1);
       // write syn_leaf
       auto syn_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
       VerMng::encode_node_versions((char*)syn_leaf, syn_leaf_buffer);
@@ -222,14 +222,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
       // write syn_pointer and unlock
-      leaf->metadata.synonym_ptr = syn_addr;
-      auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
-      memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
-      rs[1].source = (uint64_t)encoded_leaf_buffer;
-      rs[1].dest = insert_leaf_addr.to_uint64();
-      rs[1].size = define::transLeafSize + sizeof(uint64_t);
-      rs[1].is_on_chip = false;
+      // leaf->metadata.synonym_ptr = syn_addr;
+      // auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      // VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
+      // memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
+      // rs[1].source = (uint64_t)encoded_leaf_buffer;
+      // rs[1].dest = insert_leaf_addr.to_uint64();
+      // rs[1].size = define::transLeafSize + sizeof(uint64_t);
+      // rs[1].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
     }
     else {  // old syn leaf: write syn leaf and unlock
