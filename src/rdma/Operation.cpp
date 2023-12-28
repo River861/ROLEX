@@ -409,7 +409,6 @@ bool rdmaWriteBatch(ibv_qp *qp, RdmaOpRegion *ror, int k, bool isSignaled,
     wr[i].wr.rdma.remote_addr = ror[i].dest;
     wr[i].wr.rdma.rkey = ror[i].remoteRKey;
     wr[i].wr_id = wrID;
-    // wr[i].send_flags |= IBV_SEND_FENCE;
   }
 
   if (ibv_post_send(qp, &wr[0], &wrBad) != 0) {

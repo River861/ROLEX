@@ -81,10 +81,10 @@ private:
 
   // hopscotch
 #ifdef HOPSCOTCH_LEAF_NODE
-  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink);
-  void hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, bool is_syn, CoroPull* sink, bool update_local_slt=true);
-  void hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, const std::vector<bool>& is_syn, CoroPull* sink, bool update_local_slt=true);
-  void segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink);
+  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock=true);
+  void hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, CoroPull* sink, bool update_local_slt=true);
+  void hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt=true);
+  void segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock=true);
   void entry_write_and_unlock(LeafNode* leaf, const int idx, const GlobalAddress& node_addr, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
 #endif
 
@@ -98,7 +98,7 @@ private:
 
   static thread_local std::vector<CoroPush> workers;
   static thread_local CoroQueue busy_waiting_queue;
-  static thread_local std::map<GlobalAddress, GlobalAddress> coro_syn_leaf_addrs[MAX_CORO_NUM+1];
+  static thread_local std::map<GlobalAddress, GlobalAddress> syn_leaf_addrs;
 
   uint64_t rolex_id;
 };
