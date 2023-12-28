@@ -220,7 +220,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
       // write syn_pointer
-      rs[1].source = (uint64_t)leaf;
+      auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      VerMng::encode_node_versions((char*)leaf, leaf_buffer);
+      rs[1].source = (uint64_t)leaf_buffer;
       rs[1].dest = insert_leaf_addr.to_uint64();
       rs[1].size = define::leafMetadataSize;
       rs[1].is_on_chip = false;
