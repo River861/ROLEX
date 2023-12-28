@@ -184,14 +184,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
   }
   else {
-    unlock_node(insert_leaf_addr, sink);
-    goto insert_finish;
-    // std::vector<LeafNode*> two_leaves;
-    // read_leaf_cnt += 2;
-    // fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
-    // assert(two_leaves.size() == 2);
-    // leaf = two_leaves.front();
-    // syn_leaf = two_leaves.back();
+    // unlock_node(insert_leaf_addr, sink);
+    // goto insert_finish;
+    std::vector<LeafNode*> two_leaves;
+    read_leaf_cnt += 2;
+    fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink, false);
+    assert(two_leaves.size() == 2);
+    leaf = two_leaves.front();
+    syn_leaf = two_leaves.back();
   }
 
   // 3. Insert k locally
