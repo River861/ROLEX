@@ -106,8 +106,8 @@ constexpr uint64_t rdmaBufferSize     = 1;         // GB  [CONFIG] 4
 
 // Rolex
 constexpr uint64_t fakePort            = 8888;
-constexpr uint64_t modelRegionSize     = 100 * MB;
-constexpr uint64_t fakeLeafRegionSize  = 2   * MB;
+constexpr uint64_t modelRegionSize     = 1 * GB;
+constexpr uint64_t fakeLeafRegionSize  = 2 * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
 #ifdef HOPSCOTCH_LEAF_NODE
 constexpr uint32_t leafSpanSize        = 128;
