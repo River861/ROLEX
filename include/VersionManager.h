@@ -49,11 +49,6 @@ inline bool VersionManager<NODE, ENTRY>::decode_node_versions(char *input_buffer
     }
     // node- and entry-level consistency check
     if (obj_version != cacheline_version) {
-      std::cout << "[FUCK]: decode_node_versions()-1: j=" << j << " STRUCT_OFFSET(records)=" << STRUCT_OFFSET(NODE, records) << " STRUCT_OFFSET(entry[2])=" << STRUCT_OFFSET(NODE, records[2]) << std::endl;
-      std::cout << "[FUCK]: decode_node_versions()-1: entries[" << (j - STRUCT_OFFSET(NODE, records)) / sizeof(ENTRY) << "].h_version=" << obj_version << "  cacheline_version=" << cacheline_version << std::endl;
-      std::cout << "[FUCK]: decode_node_versions()-1: metadata.h_version=" << metadata.h_version;
-      for (int i = 0; i < 7; ++ i) std::cout << "  entries[" << i << "].h_version=" << entries[i].h_version;
-      std::cout << std::endl;
       return false;
     }
   }
