@@ -9,11 +9,12 @@ class LeafMetadata {
 public:
   PackedVersion h_version;
   // metadata
+  uint8_t valid;
   GlobalAddress synonym_ptr;
 
 public:
-  LeafMetadata() : h_version(), synonym_ptr() {}
-  LeafMetadata(PackedVersion h_version, GlobalAddress synonym_ptr) : h_version(h_version), synonym_ptr(synonym_ptr) {}
+  LeafMetadata() : h_version(), valid(1), synonym_ptr() {}
+  LeafMetadata(PackedVersion h_version, GlobalAddress synonym_ptr) : h_version(h_version), valid(1), synonym_ptr(synonym_ptr) {}
 } __attribute__((packed));
 
 static_assert(sizeof(LeafMetadata) == define::leafMetadataSize);

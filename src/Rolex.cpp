@@ -175,17 +175,11 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
     read_leaf_cnt ++;
-    if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
-      printf("FUCK1\n");
-    }
     fetch_node(insert_leaf_addr, leaf, sink, false);
     if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
-      if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
-        printf("FUCK2\n");
-      }
       fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
     }
   }
@@ -228,9 +222,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
       // write syn_pointer and unlock
-      if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
-        printf("FUCK3\n");
-      }
       leaf->metadata.synonym_ptr = syn_addr;
       auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
       VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
