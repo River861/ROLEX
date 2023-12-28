@@ -98,7 +98,7 @@ private:
 
   static thread_local std::vector<CoroPush> workers;
   static thread_local CoroQueue busy_waiting_queue;
-  static thread_local std::map<GlobalAddress, GlobalAddress> coro_syn_leaf_addrs[MAX_CORO_NUM];
+  static thread_local std::map<GlobalAddress, GlobalAddress> coro_syn_leaf_addrs[MAX_CORO_NUM+1];
 
   uint64_t rolex_id;
 };

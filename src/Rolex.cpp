@@ -37,7 +37,7 @@ thread_local std::vector<CoroPush> RolexIndex::workers;
 thread_local CoroQueue RolexIndex::busy_waiting_queue;
 
 // Auxiliary structure for simplicity
-thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::coro_syn_leaf_addrs[MAX_CORO_NUM];
+thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::coro_syn_leaf_addrs[MAX_CORO_NUM+1];
 
 
 RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
@@ -712,7 +712,7 @@ re_read:
 void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)  TODO: HOPSCOTCH_LEAF_NODE
   assert(dsm->is_register());
   before_operation(nullptr);
-  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[MAX_CORO_NUM];
 
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_range_from_cache(from, to);
