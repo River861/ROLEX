@@ -70,11 +70,6 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
 
 inline GlobalAddress RolexIndex::get_leaf_address(int leaf_idx) {
   uint64_t offset = define::kLeafRegionStartOffset + (leaf_idx / MEMORY_NODE_NUM) * ROUND_UP(define::allocationLeafSize, 3);
-  if (offset + define::allocationLeafSize >= define::synRegionOffset) {
-    debug_lock.lock();
-    std::cout << "FUCK!! leaf_idx=" << leaf_idx << " leaf_addr=" << GlobalAddress{0, offset} << " limit_addr=" << GlobalAddress{0, define::synRegionOffset} << std::endl;
-    debug_lock.unlock();
-  }
   assert(offset + define::allocationLeafSize < define::synRegionOffset);
   return GlobalAddress{leaf_idx % MEMORY_NODE_NUM, offset};
 }
@@ -242,14 +237,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[0].size = define::transLeafSize;
       rs[0].is_on_chip = false;
       // write syn_pointer and unlock
-      // leaf->metadata.synonym_ptr = syn_addr;
-      // auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      // VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
-      // memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
-      // rs[1].source = (uint64_t)encoded_leaf_buffer;
-      // rs[1].dest = insert_leaf_addr.to_uint64();
-      // rs[1].size = define::transLeafSize + sizeof(uint64_t);
-      // rs[1].is_on_chip = false;
+      leaf->metadata.synonym_ptr = syn_addr;
+      auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
+      memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
+      rs[1].source = (uint64_t)encoded_leaf_buffer;
+      rs[1].dest = insert_leaf_addr.to_uint64();
+      rs[1].size = define::transLeafSize + sizeof(uint64_t);
+      rs[1].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
     }
     else {  // old syn leaf: write syn leaf and unlock
