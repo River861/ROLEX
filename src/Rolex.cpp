@@ -209,8 +209,8 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     if (syn_addr == GlobalAddress::Max()) {  // existing key
       unlock_node(insert_leaf_addr, sink);
     }
-    assert(syn_leaf != nullptr);
-    if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
+    else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
+      assert(syn_leaf != nullptr);
       syn_leaf_addrs[insert_leaf_addr] = syn_addr;
       leaf->metadata.synonym_ptr = syn_addr;
       std::vector<RdmaOpRegion> rs(3);
@@ -234,9 +234,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[2].size = sizeof(uint64_t);
       rs[2].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
-      printf("GOOD FUCK\n");
     }
     else {  // old syn leaf: write syn leaf and unlock
+      assert(syn_leaf != nullptr);
       syn_addr = leaf->metadata.synonym_ptr;
       write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
     }
