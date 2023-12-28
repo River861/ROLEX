@@ -180,7 +180,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
-      fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
+      // fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
     }
   }
   else {
@@ -306,7 +306,7 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
     auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     syn_leaf = new (syn_buffer) LeafNode;
     syn_leaf->records[0].update(k, v);
-    return dsm->alloc(define::allocationLeafSize);
+    return dsm->alloc(define::allocationLeafSize);  // TODO: 向和leaf的同一个MN进行alloc
   }
   else {  // store in the synonym leaf
     auto& syn_records = syn_leaf->records;
