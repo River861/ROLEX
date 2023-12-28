@@ -221,10 +221,11 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[0].is_on_chip = false;
       // write syn_pointer
       auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      VerMng::encode_node_versions((char*)leaf, leaf_buffer);
+      auto [raw_offset, _1, first_offset] = VerMng::get_offset_info(0);
+      VerMng::encode_segment_versions((char*)leaf, leaf_buffer, first_offset, std::vector<int>{}, 0, 0);
       rs[1].source = (uint64_t)leaf_buffer;
       rs[1].dest = insert_leaf_addr.to_uint64();
-      rs[1].size = define::leafMetadataSize;
+      rs[1].size = raw_offset;
       rs[1].is_on_chip = false;
       // unlock
       auto lock_offset = get_unlock_info(insert_leaf_addr);
