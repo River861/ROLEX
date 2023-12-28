@@ -177,7 +177,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     read_leaf_cnt ++;
     if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
       printf("FUCK1\n");
-      assert(false);
     }
     fetch_node(insert_leaf_addr, leaf, sink, false);
     if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
@@ -186,7 +185,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       read_leaf_cnt ++;
       if (insert_leaf_addr == GlobalAddress(0, 0x436277d8)) {
         printf("FUCK2\n");
-        assert(false);
       }
       fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
     }
