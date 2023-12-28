@@ -111,7 +111,7 @@ constexpr uint64_t fakeLeafRegionSize  = 2 * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
 #ifdef HOPSCOTCH_LEAF_NODE
 constexpr uint32_t leafSpanSize        = 128;
-constexpr uint64_t epsilon             = 10;
+constexpr uint64_t epsilon             = 32;
 #else
 constexpr uint32_t leafSpanSize        = 64;   // 64  NOTE: this affects the bandwidth/IOPS
 constexpr uint64_t epsilon             = 32;   // 32  NOTE: this affects the cache_efficiency
