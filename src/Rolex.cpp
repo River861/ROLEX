@@ -168,7 +168,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 #endif
 
   // 2. Fine-grained locking and re-read
-  GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
+  const GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
   LeafNode* leaf = nullptr, *syn_leaf = nullptr;
   lock_node(insert_leaf_addr, sink);
   // re-read leaf + synonym leaf
@@ -208,7 +208,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
     if (syn_addr == GlobalAddress::Max()) {  // existing key
       unlock_node(insert_leaf_addr, sink);
-      goto insert_finish;
     }
     assert(syn_leaf != nullptr);
     if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
@@ -240,7 +239,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       syn_addr = leaf->metadata.synonym_ptr;
       write_node_and_unlock(syn_addr, syn_leaf, insert_leaf_addr, sink);
     }
-    unlock_node(insert_leaf_addr, sink);  // FUCK
   }
 #else
   for (i = 0; i < (int)define::leafSpanSize; ++ i) {
