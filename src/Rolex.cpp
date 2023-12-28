@@ -204,7 +204,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 #ifdef HOPSCOTCH_LEAF_NODE
   // use a leaf copy to hop since it may fail
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-  memcpy(leaf_copy_buffer, leaf_buffer, define::allocationLeafSize);
+  memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
   if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
