@@ -211,7 +211,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       assert(syn_leaf != nullptr);
-      // syn_leaf_addrs[insert_leaf_addr] = syn_addr;
+      syn_leaf_addrs[insert_leaf_addr] = syn_addr;  // GUB: cause dead lock
       leaf->metadata.synonym_ptr = syn_addr;
       // std::vector<RdmaOpRegion> rs(3);
       // // write syn_leaf
@@ -349,13 +349,13 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
 
-re_fetch:
-  raw_buffers.clear();
-  rs.clear();
   for (const auto& leaf_addr : leaf_addrs) {
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
-
+  }
+re_fetch:
+  rs.clear();
+  for (const auto& leaf_addr : leaf_addrs) {
     RdmaOpRegion r;
     r.source     = (uint64_t)raw_buffer;
     r.dest       = leaf_addr.to_uint64();
@@ -820,14 +820,14 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   auto [raw_offset_l, raw_len_l, first_offset_l] = VerMng::get_offset_info(0, segment_size_l);
   assert(segment_size_l > 0 || !raw_len_l);
 
-
+  for (const auto& leaf_addr : leaf_addrs) {
+    auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    raw_buffers.emplace_back(raw_buffer);
+  }
 re_fetch:
-  raw_buffers.clear();
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     const auto& leaf_addr = leaf_addrs[i];
-    auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    raw_buffers.emplace_back(raw_buffer);
     if (is_syn[i]) {  // read the whole node
       RdmaOpRegion r;
       r.source     = (uint64_t)raw_buffer;
