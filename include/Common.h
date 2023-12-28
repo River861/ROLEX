@@ -167,7 +167,7 @@ constexpr uint64_t kLocalLockNum    = 4 * MB;  // tune to an appropriate value (
 constexpr uint64_t kOnChipLockNum   = kLockChipMemSize * 8;  // 1bit-lock
 
 // Synonym leaf
-constexpr uint64_t synRegionOffset   = ROUND_UP(60000000ULL * allocationLeafSize / leafSpanSize, 6); // B
+constexpr uint64_t synRegionOffset   = ROUND_UP(60000000ULL * allocationLeafSize / leafSpanSize, CACHELINE_ALIGN_BIT); // B
 }
 
 
