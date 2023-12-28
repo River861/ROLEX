@@ -142,7 +142,7 @@ constexpr uint32_t blockSize       = cachelineSize - versionSize;
 // Leaf Node
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
 #ifdef HOPSCOTCH_LEAF_NODE
-constexpr uint32_t leafEntrySize = versionSize + sizeof(uint16_t) + keyLen + simulatedValLen;
+constexpr uint32_t leafEntrySize = versionSize + sizeof(uint8_t) + keyLen + simulatedValLen;
 #else
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
 #endif
@@ -150,7 +150,7 @@ constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize +
 constexpr uint32_t allocationLeafSize = transLeafSize + 8UL;  // remain space for the lock
 
 // Hopscotch Hashing
-constexpr uint32_t hopRange = 16;
+constexpr uint32_t hopRange = 8;
 constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
 constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 
