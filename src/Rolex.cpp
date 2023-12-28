@@ -180,7 +180,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
-      fetch_node(syn_leaf_addrs[insert_leaf_addr], syn_leaf, sink);
+      fetch_node(leaf->metadata.synonym_ptr, syn_leaf, sink, false);
     }
   }
   else {
@@ -416,10 +416,10 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
-  // if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-  //   read_leaf_retry[dsm->getMyThreadID()] ++;
-  //   goto re_read;
-  // }
+  if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+    read_leaf_retry[dsm->getMyThreadID()] ++;
+    goto re_read;
+  }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
