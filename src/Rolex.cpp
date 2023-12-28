@@ -211,7 +211,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     else if (syn_addr != GlobalAddress::Null()) {  // new syn leaf: write syn leaf, syn pointer and unlock
       assert(syn_leaf != nullptr);
-      syn_leaf_addrs[insert_leaf_addr] = syn_addr;
+      // syn_leaf_addrs[insert_leaf_addr] = syn_addr;
       leaf->metadata.synonym_ptr = syn_addr;
       // std::vector<RdmaOpRegion> rs(3);
       // // write syn_leaf
