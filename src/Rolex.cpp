@@ -99,7 +99,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   int cnt = 0;
 re_acquire:
   if (!acquire_lock(node_addr)){
-    if (++ cnt > 10000000) {
+    if (++ cnt > 1000000) {
       printf("dead lock!\n");
       assert(false);
     }
@@ -416,10 +416,10 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
-  if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-    read_leaf_retry[dsm->getMyThreadID()] ++;
-    goto re_read;
-  }
+  // if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
+  //   read_leaf_retry[dsm->getMyThreadID()] ++;
+  //   goto re_read;
+  // }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
