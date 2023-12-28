@@ -26,6 +26,8 @@ uint64_t try_read_op[MAX_APP_THREAD];
 uint64_t read_leaf_retry[MAX_APP_THREAD];
 uint64_t leaf_read_syn[MAX_APP_THREAD];
 uint64_t try_read_leaf[MAX_APP_THREAD];
+double load_factor_sum[MAX_APP_THREAD];
+uint64_t split_hopscotch[MAX_APP_THREAD];
 std::map<uint64_t, uint64_t> range_cnt[MAX_APP_THREAD];
 
 uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
@@ -62,6 +64,8 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
     read_leaf_retry[tid]         = 0;
     leaf_read_syn[tid]           = 0;
     try_read_leaf[tid]           = 0;
+    load_factor_sum[tid]         = 0;
+    split_hopscotch[tid]         = 0;
     range_cnt[tid].clear();
     need_clear[tid]              = false;
   }
@@ -201,6 +205,11 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
   if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
+    // load factor
+    split_hopscotch[dsm->getMyThreadID()] ++;
+    int non_empty_entry_cnt = 0;
+    for (const auto& e : leaf->records) if (e.key == define::kkeyNull) ++ non_empty_entry_cnt;
+    load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -1021,5 +1030,7 @@ void RolexIndex::clear_debug_info() {
   memset(read_leaf_retry, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(try_read_leaf, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(leaf_read_syn, 0, sizeof(uint64_t) * MAX_APP_THREAD);
+  memset(load_factor_sum, 0, sizeof(double) * MAX_APP_THREAD);
+  memset(split_hopscotch, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   for (int i = 0; i > MAX_APP_THREAD; ++ i) range_cnt[i].clear();
 }
