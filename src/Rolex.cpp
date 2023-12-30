@@ -158,11 +158,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
-  // // FUCK
-  // static std::random_device rd;
-  // static std::mt19937 e(rd());
-  // std::uniform_int_distribution<int> u(0, define::leafNumMax-2);
-  // insert_idx = u(e);
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
@@ -239,7 +234,8 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
       printf("synonmy leaf is hop-full!!\n");
-      assert(false);
+      unlock_node(insert_leaf_addr, sink);
+      goto insert_finish;
     }
     if (write_leaf) {  // new syn leaf
       leaf->metadata.synonym_ptr = syn_leaf_addr;
