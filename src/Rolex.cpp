@@ -238,7 +238,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       rs[1].size = sizeof(uint64_t);
       rs[1].is_on_chip = false;
       dsm->write_batches_sync(rs, sink);
-      syn_leaf_addrs[insert_leaf_addr] = syn_leaf_addr;
     }
     else {
       if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // insert into old synonym leaf
