@@ -219,7 +219,14 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       // calculate load factor
       split_hopscotch[dsm->getMyThreadID()] ++;
       int non_empty_entry_cnt = 0;
-      for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
+      debug_lock.lock();
+      std::cout << "[FUCK]: ";
+      for (const auto& e : leaf->records) if (e.key != define::kkeyNull) {
+        std::cout << e.key << " ";
+        ++ non_empty_entry_cnt;
+      }
+      debug_lock.unlock();
+      assert(false);
       load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
     }
     if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
