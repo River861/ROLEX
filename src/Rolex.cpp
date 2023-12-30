@@ -219,34 +219,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
-      // calculate load factor
-      split_hopscotch[dsm->getMyThreadID()] ++;
-      int non_empty_entry_cnt = 0;
-      for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
-      load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
-      // allocate new leaf
-      syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
-      auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      syn_leaf = new (syn_buffer) LeafNode;
-      // write new leaf
-      assert(hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false));
-      // write syn_pointer and unlock
-      leaf->metadata.synonym_ptr = syn_leaf_addr;
-      std::vector<RdmaOpRegion> rs(2);
-      rs[0].source = (uint64_t)leaf;
-      rs[0].dest = insert_leaf_addr.to_uint64();
-      rs[0].size = define::leafMetadataSize;
-      rs[0].is_on_chip = false;
-      auto lock_offset = get_unlock_info(insert_leaf_addr);
-      auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();  // unlock
-      rs[1].source = (uint64_t)zero_buffer;
-      rs[1].dest = (insert_leaf_addr + lock_offset).to_uint64();
-      rs[1].size = sizeof(uint64_t);
-      rs[1].is_on_chip = false;
-      dsm->write_batches_sync(rs, sink);
+      hopscotch_split_and_unlock(leaf, k, v, insert_leaf_addr, sink);
     }
-    else {
-      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // insert into old synonym leaf
+    else {  // insert into old synonym leaf
+      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {
         printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
         assert(false);
       }
@@ -774,6 +750,131 @@ next_hop:
 }
 
 
+void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink) {
+  split_hopscotch[dsm->getMyThreadID()] ++;
+  auto& records = leaf->records;
+  // calculate split_key
+  auto split_key = hopscotch_get_split_key(records, k);
+
+  // synonym node
+  auto synonym_addr = dsm->alloc(define::allocationLeafSize);  // TODO: same MN
+  auto synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  auto synonym_leaf = new (synonym_buffer) LeafNode;
+
+  // move data
+  int non_empty_entry_cnt = 0;
+  for (int i = 0; i < (int)define::leafSpanSize; ++ i) {
+    auto& old_e = records[i];
+    if (old_e.key != define::kkeyNull) {
+      ++ non_empty_entry_cnt;
+      if (old_e.key >= split_key) {
+        int hash_idx = get_hashed_leaf_entry_index(old_e.key);
+        // move
+        synonym_leaf->records[i].update(old_e.key, old_e.value);
+        old_e.update(define::kkeyNull, define::kValueNull);
+        // update hop_bit
+        auto offset = (i >= hash_idx ? i - hash_idx : i + (int)define::leafSpanSize - hash_idx);
+        synonym_leaf->records[hash_idx].set_hop_bit(offset);
+        records[hash_idx].unset_hop_bit(offset);
+      }
+    }
+  }
+  load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
+  // newly insert kv
+  if (k < split_key) hopscotch_insert_locally(records, k, v);
+  else hopscotch_insert_locally(synonym_leaf->records, k, v);
+  // change metadata
+  leaf->metadata.synonym_ptr = synonym_addr;
+  // write synonym leaf
+  auto encoded_synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  VerMng::encode_node_versions(synonym_buffer, encoded_synonym_buffer);
+  dsm->write_sync_without_sink(encoded_synonym_buffer, synonym_addr, define::transLeafSize, sink, &busy_waiting_queue);
+
+  // wirte split node and unlock
+  auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  VerMng::encode_node_versions((char *)leaf, encoded_leaf_buffer);
+  memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
+  dsm->write_sync_without_sink(encoded_leaf_buffer, node_addr, define::transLeafSize + sizeof(uint64_t), sink, &busy_waiting_queue);
+}
+
+
+Key RolexIndex::hopscotch_get_split_key(LeafEntry* records, const Key& k) {
+  // calculate a proper split key to ensure k can be inserted after node split
+  auto get_entry = [=](int logical_idx) -> const LeafEntry& {
+    return records[(logical_idx + define::leafSpanSize) % define::leafSpanSize];
+  };
+
+  std::vector<Key> critical_keys;
+  int hash_idx = get_hashed_leaf_entry_index(k);
+  for (int empty_idx = hash_idx; empty_idx < hash_idx + (int)define::leafSpanSize; ++ empty_idx) {
+    if (get_entry(empty_idx).key == define::kkeyNull) break;
+    // try hopping assuming that get_entry(empty_idx) is empty
+    int j = empty_idx;
+next_hop:
+    if (j < hash_idx + (int)define::hopRange) {
+      critical_keys.emplace_back(get_entry(empty_idx).key);
+      continue;
+    }
+    for (int offset = define::hopRange - 1; offset > 0; -- offset) {
+      int h = j - offset;
+      int h_hash_idx = get_hashed_leaf_entry_index(get_entry(h).key);
+      // corner case
+      if (h - h_hash_idx < 0) h_hash_idx -= define::leafSpanSize;
+      else if (h - h_hash_idx >= (int)define::hopRange) h_hash_idx += define::leafSpanSize;
+      // hop h => j is ok
+      if (h_hash_idx + (int)define::hopRange > j) {
+        j = h;
+        goto next_hop;
+      }
+    }
+  }
+  assert(!critical_keys.empty());
+  std::sort(critical_keys.begin(), critical_keys.end());
+  return critical_keys.at(critical_keys.size() / 2);
+}
+
+
+void RolexIndex::hopscotch_insert_locally(LeafEntry* records, const Key& k, Value v) {
+  auto get_entry = [=, &records](int logical_idx) -> LeafEntry& {
+    return records[(logical_idx + define::leafSpanSize) % define::leafSpanSize];
+  };
+  // caculate hash idx
+  int hash_idx = get_hashed_leaf_entry_index(k);
+  // find an empty slot
+  int j = -1;
+  for (int i = hash_idx; i < hash_idx + (int)define::leafSpanSize; ++ i) {
+    if (get_entry(i).key == define::kkeyNull) {
+      j = i;
+      break;
+    }
+  }
+  // hop
+  assert(j >= 0);
+next_hop:
+  if (j < hash_idx + (int)define::hopRange) {
+    get_entry(j).update(k, v);
+    get_entry(hash_idx).set_hop_bit(j - hash_idx);
+    return;
+  }
+  for (int offset = define::hopRange - 1; offset > 0; -- offset) {
+    int h = j - offset;
+    int h_hash_idx = get_hashed_leaf_entry_index(get_entry(h).key);
+    // corner case
+    if (h - h_hash_idx < 0) h_hash_idx -= define::leafSpanSize;
+    else if (h - h_hash_idx >= (int)define::hopRange) h_hash_idx += define::leafSpanSize;
+    // hop h => j is ok
+    if (h_hash_idx + (int)define::hopRange > j) {
+      get_entry(j).update(get_entry(h).key, get_entry(h).value);
+      get_entry(h_hash_idx).unset_hop_bit(h - h_hash_idx);
+      get_entry(h_hash_idx).set_hop_bit(j - h_hash_idx);
+      j = h;
+      goto next_hop;
+    }
+  }
+  assert(false);
+}
+
+
 void RolexIndex::hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, CoroPull* sink, bool update_local_slt) {
   std::vector<LeafNode*> leaves;
   hopscotch_fetch_nodes(std::vector<GlobalAddress>{leaf_addr}, hash_idx, leaves, sink, update_local_slt);
@@ -945,7 +1046,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
     auto intermediate_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto [first_metadata_offset, new_len] = MetadataManager::get_offset_info(idx);
     MetadataManager::encode_segment_metadata((char *)&entry, intermediate_segment_buffer, first_metadata_offset, 1,
-                                              LeafMetadata(metadata.h_version, 0, metadata.valid, metadata.sibling_ptr, metadata.fence_keys));
+                                              LeafMetadata(metadata.h_version, 0, metadata.valid, metadata.synonym_ptr, metadata.fence_keys));
     auto [raw_offset, raw_len, first_offset] = LeafVersionManager::get_offset_info(idx);
     LeafVersionManager::encode_segment_versions(intermediate_segment_buffer, encoded_entry_buffer, first_offset, std::vector<int>{idx}, idx, idx, first_metadata_offset, new_len);
     return std::make_pair(raw_offset, raw_len);
