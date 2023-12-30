@@ -201,6 +201,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 #endif
 
 #ifdef HOPSCOTCH_LEAF_NODE
+  for (const auto& e : leaf->records) if (e.key == k) {  // existing key
+    unlock_node(insert_leaf_addr, sink);
+    goto insert_finish;
+  }
   // use a leaf copy to hop since it may fail
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
