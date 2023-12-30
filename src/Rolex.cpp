@@ -651,32 +651,32 @@ re_read:
   // 3. Search the fetched leaves
   assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
   for (int i = 0; i < (int)leaves.size(); ++ i) {
-#ifdef HOPSCOTCH_LEAF_NODE
-    // check hopping consistency && search key from the segments
-    uint8_t hop_bitmap = 0U;
-    for (int j = 0; j < (int)define::hopRange; ++ j) {
-      const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
-      if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
-        hop_bitmap |= 1U << (define::hopRange - j - 1);
-        if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
-          v = e.value;
-          return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
-        }
-      }
-    }
-    if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      assert(false);
-      goto re_read;
-    }
-#else
+// #ifdef HOPSCOTCH_LEAF_NODE
+//     // check hopping consistency && search key from the segments
+//     uint8_t hop_bitmap = 0U;
+//     for (int j = 0; j < (int)define::hopRange; ++ j) {
+//       const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
+//       if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
+//         hop_bitmap |= 1U << (define::hopRange - j - 1);
+//         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
+//           v = e.value;
+//           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
+//         }
+//       }
+//     }
+//     if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
+//       read_leaf_retry[dsm->getMyThreadID()] ++;
+//       assert(false);
+//       goto re_read;
+//     }
+// #else
     for (const auto& e : leaves[i]->records) {
       if (e.key == k) {
         v = e.value;
         return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
       }
     }
-#endif
+// #endif
   }
   assert(false);
   return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null(), read_leaf_cnt);
