@@ -3,12 +3,12 @@
 
 #include <iostream>
 
-#define TEST_NUM 102400  // 102400
+#define TEST_NUM 1024000  // 102400
 
 std::vector<Key> train_keys;
 
 void load_train_keys() {
-  for (uint64_t i = 1; i <= TEST_NUM/2; ++i) {
+  for (uint64_t i = 1; i <= TEST_NUM; ++i) {
     train_keys.emplace_back(int2key(i));
   }
 }
