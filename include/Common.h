@@ -140,11 +140,6 @@ constexpr uint32_t versionSize     = ROUND_UP(entryVersionBit + nodeVersionBit, 
 constexpr uint32_t cachelineSize   = 64;
 constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
-// Hopscotch Hashing
-constexpr uint32_t hopRange = 8;
-constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
-constexpr uint32_t groupSize     = leafEntrySize * hopRange;
-
 // Leaf Node
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
 #ifdef HOPSCOTCH_LEAF_NODE
@@ -152,6 +147,13 @@ constexpr uint32_t leafEntrySize = versionSize + sizeof(uint16_t) + keyLen + sim
 #else
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
 #endif
+
+// Hopscotch Hashing
+constexpr uint32_t hopRange = 8;
+constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
+constexpr uint32_t groupSize     = leafEntrySize * hopRange;
+
+// Rdma Read/Write Size
 #ifdef SCATTERED_LEAF_METADATA
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE((leafMetadataSize + leafEntrySize * hopRange) * entryGroupNum, versionSize);
 #else
