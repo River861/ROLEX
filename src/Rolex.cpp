@@ -240,7 +240,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   }
   if (i == (int)define::leafSpanSize) {  // insert k into the synonym leaf
     write_syn_leaf = true;
-    auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, sink);
+    auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, insert_leaf_addr.nodeID, sink);
     if (syn_addr == GlobalAddress::Max()) {  // existing key
       unlock_node(insert_leaf_addr, sink);
       goto insert_finish;
@@ -258,7 +258,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     if (j == (int)define::leafSpanSize) {  // overflow the last k to the synonym leaf
       write_syn_leaf = true;
       const auto& last_e = records[j - 1];
-      auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.value, syn_leaf, sink);
+      auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.value, syn_leaf, insert_leaf_addr.nodeID, sink);
       if (syn_addr == GlobalAddress::Max()) {  // existing key
         unlock_node(insert_leaf_addr, sink);
         goto insert_finish;
@@ -292,7 +292,7 @@ insert_finish:
 }
 
 
-GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink) {
+GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, int nodeID, CoroPull* sink) {
   GlobalAddress syn_leaf_addr{};
   if (!syn_leaf) {  // allocate a new synonym leaf
     syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
@@ -757,7 +757,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
   auto split_key = hopscotch_get_split_key(records, k);
 
   // synonym node
-  auto synonym_addr = dsm->alloc(define::allocationLeafSize);  // TODO: same MN
+  auto synonym_addr = dsm->alloc(define::allocationLeafSize, node_addr.nodeID);  // TODO: same MN
   auto synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto synonym_leaf = new (synonym_buffer) LeafNode;
 

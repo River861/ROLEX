@@ -67,7 +67,7 @@ private:
   std::tuple<bool, GlobalAddress, GlobalAddress, int> _search(const Key &k, Value &v, CoroPull* sink);  // return (key_is_found, leaf_addr, locked_leaf_addr)
 
   // low-level functions
-  GlobalAddress insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, CoroPull* sink);  // return syn_addr if allocating a new synonym leaf
+  GlobalAddress insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, int nodeID, CoroPull* sink);  // return syn_addr if allocating a new synonym leaf
   void fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink, bool update_local_slt=true);
   void fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt=true);
   void write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
