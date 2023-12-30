@@ -426,17 +426,17 @@ re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
 #ifdef SCATTERED_LEAF_METADATA
-    if (!(LeafVersionManager::decode_node_versions(raw_buffer, intermediate_buffer))) {
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      goto re_fetch;
-    }
-    MetadataManager::decode_node_metadata(intermediate_buffer, leaf_buffer);
+  if (!(LeafVersionManager::decode_node_versions(raw_buffer, intermediate_buffer))) {
+    read_leaf_retry[dsm->getMyThreadID()] ++;
+    goto re_read;
+  }
+  MetadataManager::decode_node_metadata(intermediate_buffer, leaf_buffer);
 #else
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
     goto re_read;
   }
-#else
+#endif
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }

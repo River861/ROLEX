@@ -29,11 +29,7 @@ inline void MetadataManager::decode_node_metadata(char *input_buffer, char *outp
   auto leaf = (LeafNode *)output_buffer;
   // copy lock and leaf metadata
   const auto& first_group = scatter_leaf->record_groups[0];
-#ifdef SIBLING_BASED_VALIDATION
-  leaf->metadata = LeafMetadata(first_group.metadata.h_version, 0U, first_group.metadata.valid, first_group.metadata.sibling_ptr, FenceKeys{});
-#else
-  leaf->metadata = LeafMetadata(first_group.metadata.h_version, 0U, first_group.metadata.valid, first_group.metadata.sibling_ptr, first_group.metadata.fence_keys);
-#endif
+  leaf->metadata = first_group.metadata;
   int i = 0;
   for (const auto& group : scatter_leaf->record_groups) {
     assert(group.metadata == first_group.metadata);
@@ -75,11 +71,7 @@ inline bool MetadataManager::decode_segment_metadata(char *input_buffer, char *o
     i += sizeof(ScatteredMetadata);
     memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::groupSize, segment_len - j));
   }
-#ifdef SIBLING_BASED_VALIDATION
-  metadata = LeafMetadata(scattered_metadata->h_version, 0U, scattered_metadata->valid, scattered_metadata->sibling_ptr, FenceKeys{});
-#else
-  metadata = LeafMetadata(scattered_metadata->h_version, 0U, scattered_metadata->valid, scattered_metadata->sibling_ptr, scattered_metadata->fence_keys);
-#endif
+  metadata = scattered_metadata;
   return true;
 }
 
