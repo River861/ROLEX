@@ -95,12 +95,21 @@ private:
   void entry_write_and_unlock(LeafNode* leaf, const int idx, const GlobalAddress& node_addr, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
 #endif
 
+  // speculative read
+#ifdef SPECULATIVE_READ
+  bool speculative_read(GlobalAddress& leaf_addr, const Key &k, Value &v, LeafNode*& leaf, int& speculative_idx, int& read_leaf_cnt, CoroPull* sink);
+  void leaf_entry_read(const GlobalAddress& leaf_addr, const int idx, char *raw_leaf_buffer, char *leaf_buffer, CoroPull* sink);
+#endif
+
   // coroutine
   void coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func);
 
 private:
   DSM *dsm;
   RolexCache* rolex_cache;
+#ifdef SPECULATIVE_READ
+  IdxCache *idx_cache;
+#endif
   LocalLockTable *local_lock_table;
 
   static thread_local std::vector<CoroPush> workers;

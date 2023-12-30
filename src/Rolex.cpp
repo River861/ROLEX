@@ -49,6 +49,9 @@ RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id)
   clear_debug_info();
   // Cache
   rolex_cache = new RolexCache(dsm, load_keys);
+#ifdef SPECULATIVE_READ
+  idx_cache = new IdxCache(define::kHotIdxCacheSize, dsm);
+#endif
   // RDWC
   local_lock_table = new LocalLockTable();
 }
@@ -504,6 +507,15 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   // 2. Fine-grained locking and re-read
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
+#ifdef SPECULATIVE_READ
+  Value old_v;
+  auto old_addr = leaf_addr;
+  if (speculative_read(leaf_addr, k, old_v, leaf, kv_idx, read_leaf_cnt, sink)) {
+    UNUSED(old_v);
+    goto update_entry;
+  }
+  leaf_addr = old_addr;
+#endif
 read_another:
   read_leaf_cnt ++;
 #ifdef HOPSCOTCH_LEAF_NODE
@@ -530,8 +542,8 @@ read_another:
     }
   }
 #else
-  for (auto& e : records) {
-    if (e.key == define::kkeyNull) break;
+  for (kv_idx = 0; kv_idx < define::leafSpanSize; ++ kv_idx) {
+    auto& e = records[kv_idx];
     if (e.key == k) {
       key_is_found = true;
 #ifdef TREE_ENABLE_WRITE_COMBINING
@@ -550,6 +562,10 @@ read_another:
     goto read_another;
   }
   // 4. Writing and unlock
+#ifdef SPECULATIVE_READ
+  idx_cache->add_to_cache(leaf_addr, (leaf_addr == lock_leaf_addr) ? kv_idx : (define::leafSpanSize + kv_idx), k);
+update_entry:
+#endif
 #ifdef HOPSCOTCH_LEAF_NODE
   entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, sink);
 #else
@@ -610,6 +626,17 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
 
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
+
+#ifdef SPECULATIVE_READ
+  for (int i = l; i <= r; ++ i) {
+    LeafNode* leaf;
+    int kv_idx;
+    auto leaf_addr = get_leaf_address(i);
+    if (speculative_read(leaf_addr, k, v, leaf, kv_idx, read_leaf_cnt, sink)) {
+      return std::make_tuple(true, leaf_addr, get_leaf_address(i), read_leaf_cnt);
+    }
+  }
+#endif
 re_read:
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> leaves;
@@ -1217,6 +1244,86 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
     rs[1].is_on_chip = false;
     dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
   }
+  return;
+}
+#endif
+
+
+#ifdef SPECULATIVE_READ
+bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, const Key &k, Value &v, LeafNode*& leaf,
+                                  int& speculative_idx, int& read_leaf_cnt, CoroPull* sink) {
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
+
+  auto raw_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  leaf = (LeafNode *)leaf_buffer;
+  if (idx_cache->search_idx_from_cache(leaf_addr, 0, define::leafSpanSize * 2, k, speculative_idx)) {
+    if (speculative_idx >= define::leafSpanSize && syn_leaf_addrs.find(syn_leaf_addrs) == syn_leaf_addrs.end()) return false;
+    // read entry
+    try_speculative_read[dsm->getMyThreadID()] ++;
+    read_leaf_cnt ++;
+    if (speculative_idx >= define::leafSpanSize) {
+      leaf_entry_read(syn_leaf_addrs[leaf_addr], speculative_idx - define::leafSpanSize, raw_leaf_buffer, leaf_buffer, sink);
+    }
+    else {
+      leaf_entry_read(leaf_addr, speculative_idx, raw_leaf_buffer, leaf_buffer, sink);
+    }
+    const auto& entry = leaf->records[speculative_idx];
+    if (entry.key == k) {
+      correct_speculative_read[dsm->getMyThreadID()] ++;
+      v = entry.value;
+      idx_cache->add_to_cache(leaf_addr, speculative_idx, k);
+      if (speculative_idx >= define::leafSpanSize) {
+        leaf_addr = syn_leaf_addrs[leaf_addr];
+        speculative_idx = speculative_idx - define::leafSpanSize;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+
+void RolexIndex::leaf_entry_read(const GlobalAddress& leaf_addr, const int idx, char *raw_leaf_buffer, char *leaf_buffer, CoroPull* sink) {
+  auto leaf = (LeafNode *)leaf_buffer;
+#ifdef SCATTERED_LEAF_METADATA
+  auto [raw_offset, raw_len, first_offset] = LeafVersionManager::get_offset_info(idx);
+  auto raw_entry_buffer = raw_leaf_buffer + raw_offset;
+re_read:
+  dsm->read_sync(raw_entry_buffer, leaf_addr + raw_offset, raw_len, sink);
+  uint8_t entry_node_version = 0;
+  auto intermediate_entry_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
+  auto [first_metadata_offset, new_len] = MetadataManager::get_offset_info(idx);
+  if (!LeafVersionManager::decode_segment_versions(raw_entry_buffer, intermediate_entry_buffer, first_offset, 1, first_metadata_offset, new_len, entry_node_version)) {
+    goto re_read;
+  }
+  MetadataManager::decode_segment_metadata(intermediate_entry_buffer, (char*)&(leaf->records[idx]), first_metadata_offset, 1, leaf->metadata);
+  return;
+#else
+  auto [raw_offset, raw_len, first_offset] = VerMng::get_offset_info(idx);
+  auto raw_entry_buffer = raw_leaf_buffer + raw_offset;
+re_read:
+  // read metadata and the hop segment
+  std::vector<RdmaOpRegion> rs(2);
+  rs[0].source = (uint64_t)raw_leaf_buffer;
+  rs[0].dest = leaf_addr.to_uint64();
+  rs[0].size = define::bufferMetadataSize;  // header
+  rs[0].is_on_chip = false;
+
+  rs[1].source = (uint64_t)raw_entry_buffer;
+  rs[1].dest = (leaf_addr + raw_offset).to_uint64();
+  rs[1].size = raw_len;
+  rs[1].is_on_chip = false;
+  // note that the rs array will change by lower-level function
+  dsm->read_batch_sync(&rs[0], 2, sink);
+  uint8_t metadata_node_version = 0, entry_node_version = 0;
+  // consistency check; note that: (segment_size_l > 0) => there are two segments
+  if (!VerMng::decode_header_versions(raw_leaf_buffer, leaf_buffer, metadata_node_version) ||
+      !VerMng::decode_segment_versions(raw_entry_buffer, (char*)&(leaf->records[idx]), first_offset, 1, entry_node_version) ||
+      metadata_node_version != entry_node_version) {
+    goto re_read;
+  }
+#endif
   return;
 }
 #endif
