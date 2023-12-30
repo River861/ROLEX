@@ -8,7 +8,7 @@
 std::vector<Key> train_keys;
 
 void load_train_keys() {
-  for (uint64_t i = 1; i <= TEST_NUM; ++i) {
+  for (uint64_t i = 1; i <= TEST_NUM/2; ++i) {
     train_keys.emplace_back(int2key(i));
   }
 }
