@@ -227,9 +227,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       int non_empty_entry_cnt = 0;
       for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
       debug_lock.lock();
-      std::cout << "[FUCK]: k=" << key2int(k) << std::endl;
+      std::cout << "[FUCK]: k=" << key2int(k) << " hash_idx=" << get_hashed_leaf_entry_index(k) << "\n";
       for (const auto& e : leaf->records) {
-        std::cout << key2int(e.key) << "\n";
+        std::cout << "key=" << key2int(e.key) << " hash_idx=" << get_hashed_leaf_entry_index(e.key) << "\n";
       }
       std::cout << " cnt=" << non_empty_entry_cnt << std::endl;
       debug_lock.unlock();
