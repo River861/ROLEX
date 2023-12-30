@@ -103,8 +103,13 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   auto acquire_lock = [=](const GlobalAddress &node_addr) {
     return dsm->cas_mask_sync_without_sink(node_addr + lock_cas_offset, 0UL, ~0UL, cas_buffer, lock_mask, sink, &busy_waiting_queue);
   };
+  int cnt = 0;
 re_acquire:
   if (!acquire_lock(node_addr)){
+    if (cnt ++ > 1000000) {
+      std::cout << "dead lock!" << std::endl;
+      assert(false);
+    }
     if (sink != nullptr) {
       busy_waiting_queue.push(sink->get());
       (*sink)();
