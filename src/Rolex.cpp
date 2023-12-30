@@ -182,7 +182,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
       fetch_node(syn_leaf_addrs[insert_leaf_addr], syn_leaf, sink);
-      assert(syn_leaf != nullptr);
     }
   }
   else {
@@ -191,7 +190,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
     leaf = two_leaves.front();
     syn_leaf = two_leaves.back();
-    assert(syn_leaf != nullptr);
   }
 
   // 3. Insert k locally
@@ -208,7 +206,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     unlock_node(insert_leaf_addr, sink);
     goto insert_finish;
   }
-  if (!hopscotch_insert_and_unlock(leaf, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
+  // use a leaf copy to hop since it may fail
+  auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
+  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -233,14 +234,12 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
       printf("synonmy leaf is hop-full!!\n");
-      // unlock_node(insert_leaf_addr, sink);
-      // goto insert_finish;
       assert(false);
     }
     if (write_leaf) {  // new syn leaf
       leaf->metadata.synonym_ptr = syn_leaf_addr;
+      // write syn_pointer and unlock
       std::vector<RdmaOpRegion> rs(2);
-      // write syn_pointer
       rs[0].source = (uint64_t)leaf;
       rs[0].dest = insert_leaf_addr.to_uint64();
       rs[0].size = define::leafMetadataSize;
@@ -586,6 +585,7 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   read_leaf_cnt += cnt;
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
+
 search_finish:
 #ifdef TREE_ENABLE_READ_DELEGATION
   local_lock_table->release_local_read_lock(k, lock_res, search_res, v);  // handover the ret leaf addr
@@ -616,12 +616,12 @@ re_read:
     }
   }
   read_leaf_cnt += leaf_addrs.size();
-// #ifdef HOPSCOTCH_LEAF_NODE
-//   int hash_idx = get_hashed_leaf_entry_index(k);
-//   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
-// #else
+#ifdef HOPSCOTCH_LEAF_NODE
+  int hash_idx = get_hashed_leaf_entry_index(k);
+  hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
+#else
   fetch_nodes(leaf_addrs, leaves, sink, false);
-// #endif
+#endif
   // 2. Read cache-miss synonmy leaves (if exists)
   std::vector<GlobalAddress> append_leaf_addrs;
   std::vector<LeafNode*> append_leaves;
@@ -639,11 +639,11 @@ re_read:
   if (!append_leaf_addrs.empty()) {
     leaf_read_syn[dsm->getMyThreadID()] ++;
     read_leaf_cnt += append_leaf_addrs.size();
-// #ifdef HOPSCOTCH_LEAF_NODE
-//     hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, sink);
-// #else
+#ifdef HOPSCOTCH_LEAF_NODE
+    hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, sink);
+#else
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
-// #endif
+#endif
     leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
     locked_leaf_addrs.insert(locked_leaf_addrs.end(), append_locked_leaf_addrs.begin(), append_locked_leaf_addrs.end());
@@ -651,24 +651,24 @@ re_read:
   // 3. Search the fetched leaves
   assert(leaf_addrs.size() == leaves.size() && leaves.size() == locked_leaf_addrs.size());
   for (int i = 0; i < (int)leaves.size(); ++ i) {
-// #ifdef HOPSCOTCH_LEAF_NODE
-//     // check hopping consistency && search key from the segments
-//     uint8_t hop_bitmap = 0U;
-//     for (int j = 0; j < (int)define::hopRange; ++ j) {
-//       const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
-//       if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
-//         hop_bitmap |= 1U << (define::hopRange - j - 1);
-//         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
-//           v = e.value;
-//           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
-//         }
-//       }
-//     }
-//     if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
-//       read_leaf_retry[dsm->getMyThreadID()] ++;
-//       goto re_read;
-//     }
-// #else
+#ifdef HOPSCOTCH_LEAF_NODE
+    // check hopping consistency && search key from the segments
+    uint8_t hop_bitmap = 0U;
+    for (int j = 0; j < (int)define::hopRange; ++ j) {
+      const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
+      if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
+        hop_bitmap |= 1U << (define::hopRange - j - 1);
+        if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
+          v = e.value;
+          return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
+        }
+      }
+    }
+    if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
+      read_leaf_retry[dsm->getMyThreadID()] ++;
+      goto re_read;
+    }
+#else
     for (const auto& e : leaves[i]->records) {
       if (e.key == define::kkeyNull) break;
       if (e.key == k) {
@@ -676,9 +676,8 @@ re_read:
         return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
       }
     }
-// #endif
+#endif
   }
-  assert(false);
   return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null(), read_leaf_cnt);
 }
 
