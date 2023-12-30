@@ -112,7 +112,7 @@ constexpr uint32_t leafSpanSize        = 128;   // 64  NOTE: this affects the ba
 constexpr uint64_t epsilon             = 32;    // 32  NOTE: this affects the cache_efficiency
 
 // Speculative cache
-constexpr int kHotIdxCacheSize = 200;
+constexpr int kHotIdxCacheSize = 60;
 
 // KV
 constexpr uint64_t kKeyMin = 1;

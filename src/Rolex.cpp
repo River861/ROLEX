@@ -503,6 +503,10 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
     goto update_finish;
   }
 
+#ifdef HOPSCOTCH_LEAF_NODE
+  int hash_idx = get_hashed_leaf_entry_index(k);
+#endif
+
   {
   // 1. Fetching
   Value old_v;
@@ -515,7 +519,16 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   LeafNode* leaf;
 #ifdef SPECULATIVE_READ
   auto old_addr = leaf_addr;
-  if (speculative_read(leaf_addr, k, old_v, leaf, kv_idx, read_leaf_cnt, sink)) {
+#ifdef HOPSCOTCH_LEAF_NODE
+    auto p = std::make_pair(hash_idx, (hash_idx + define::hopRange) % define::leafSpanSize);
+#else
+    auto p = std::make_pair(0, define::leafSpanSize);
+#endif
+  if (speculative_read(leaf_addr, p, k, old_v, leaf, kv_idx, read_leaf_cnt, sink)) {
+    UNUSED(old_v);
+    goto update_entry;
+  }
+  if (speculative_read(leaf_addr, std::make_pair(p.first + define::leafSpanSize, p.second + define::leafSpanSize), k, v, leaf, kv_idx, read_leaf_cnt, sink)) {
     UNUSED(old_v);
     goto update_entry;
   }
@@ -526,7 +539,6 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
 read_another:
   read_leaf_cnt ++;
 #ifdef HOPSCOTCH_LEAF_NODE
-  int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_node(leaf_addr, hash_idx, leaf, sink);
 #else
   fetch_node(leaf_addr, leaf, sink);
@@ -634,6 +646,10 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
   int read_leaf_cnt = 0;
   auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
 
+#ifdef HOPSCOTCH_LEAF_NODE
+  int hash_idx = get_hashed_leaf_entry_index(k);
+#endif
+
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
 
@@ -642,7 +658,15 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
     LeafNode* leaf;
     int kv_idx;
     auto leaf_addr = get_leaf_address(i);
-    if (speculative_read(leaf_addr, k, v, leaf, kv_idx, read_leaf_cnt, sink)) {
+#ifdef HOPSCOTCH_LEAF_NODE
+    auto p = std::make_pair(hash_idx, (hash_idx + define::hopRange) % define::leafSpanSize);
+#else
+    auto p = std::make_pair(0, define::leafSpanSize);
+#endif
+    if (speculative_read(leaf_addr, p, k, v, leaf, kv_idx, read_leaf_cnt, sink)) {
+      return std::make_tuple(true, leaf_addr, get_leaf_address(i), read_leaf_cnt);
+    }
+    if (speculative_read(leaf_addr, std::make_pair(p.first + define::leafSpanSize, p.second + define::leafSpanSize), k, v, leaf, kv_idx, read_leaf_cnt, sink)) {
       return std::make_tuple(true, leaf_addr, get_leaf_address(i), read_leaf_cnt);
     }
   }
@@ -665,7 +689,6 @@ re_read:
   }
   read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
-  int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
 #else
   fetch_nodes(leaf_addrs, leaves, sink, false);
@@ -1268,7 +1291,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
 
 
 #ifdef SPECULATIVE_READ
-bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, const Key &k, Value &v, LeafNode*& leaf,
+bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, std::pair<int, int> range, const Key &k, Value &v, LeafNode*& leaf,
                                   int& speculative_idx, int& read_leaf_cnt, CoroPull* sink) {
   auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
   want_speculative_read[dsm->getMyThreadID()] ++;
@@ -1276,7 +1299,7 @@ bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, const Key &k, Value 
   auto raw_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   leaf = (LeafNode *)leaf_buffer;
-  if (idx_cache->search_idx_from_cache(leaf_addr, 0, define::leafSpanSize * 2, k, speculative_idx)) {
+  if (idx_cache->search_idx_from_cache(leaf_addr, range.first, range.second, k, speculative_idx)) {
     if (speculative_idx >= define::leafSpanSize && syn_leaf_addrs.find(leaf_addr) == syn_leaf_addrs.end()) return false;
     // read entry
     try_speculative_read[dsm->getMyThreadID()] ++;
