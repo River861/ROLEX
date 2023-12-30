@@ -22,7 +22,7 @@ inline uint64_t get_hashed_local_lock_index(const GlobalAddress& addr) {
 
 inline uint64_t get_hashed_leaf_entry_index(const Key& k) {
   // return CityHash64((char *)&k, sizeof(k)) % define::leafSpanSize;
-  auto p = std::make_pair(k, key2int(k));
+  auto p = key2int(k);
   return CityHash64((char *)&p, sizeof(p)) % define::leafSpanSize;
 }
 
