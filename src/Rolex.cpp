@@ -503,11 +503,10 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
     goto update_finish;
   }
 
+  {
 #ifdef HOPSCOTCH_LEAF_NODE
   int hash_idx = get_hashed_leaf_entry_index(k);
 #endif
-
-  {
   // 1. Fetching
   Value old_v;
   auto [ret, leaf_addr, lock_leaf_addr, cnt] = _search(k, old_v, sink);
