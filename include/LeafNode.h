@@ -28,7 +28,7 @@ class LeafEntry {
 public:
   PackedVersion h_version;
 #ifdef HOPSCOTCH_LEAF_NODE
-  uint8_t hop_bitmap : define::hopRange;
+  uint16_t hop_bitmap : define::hopRange;
 #endif
   // kv
   Key key;
@@ -39,8 +39,8 @@ public:
 
 public:
 #ifdef HOPSCOTCH_LEAF_NODE
-  LeafEntry() : h_version(), hop_bitmap(0U), key(define::kkeyNull), value(define::kValueNull) {}
-  LeafEntry(const Key& k, const Value& v) : h_version(), hop_bitmap(0U), key(k), value(v) {}
+  LeafEntry() : h_version(), hop_bitmap(0), key(define::kkeyNull), value(define::kValueNull) {}
+  LeafEntry(const Key& k, const Value& v) : h_version(), hop_bitmap(0), key(k), value(v) {}
 #else
   LeafEntry() : h_version(), key(define::kkeyNull), value(define::kValueNull) {}
   LeafEntry(const Key& k, const Value& v) : h_version(), key(k), value(v) {}
