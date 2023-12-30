@@ -182,6 +182,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
       fetch_node(syn_leaf_addrs[insert_leaf_addr], syn_leaf, sink);
+      assert(syn_leaf != nullptr);
     }
   }
   else {
@@ -190,6 +191,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]}, two_leaves, sink);
     leaf = two_leaves.front();
     syn_leaf = two_leaves.back();
+    assert(syn_leaf != nullptr);
   }
 
   // 3. Insert k locally
@@ -206,10 +208,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     unlock_node(insert_leaf_addr, sink);
     goto insert_finish;
   }
-  // use a leaf copy to hop since it may fail
-  auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-  memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
-  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
+  if (!hopscotch_insert_and_unlock(leaf, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -240,8 +239,8 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     if (write_leaf) {  // new syn leaf
       leaf->metadata.synonym_ptr = syn_leaf_addr;
-      // write syn_pointer and unlock
       std::vector<RdmaOpRegion> rs(2);
+      // write syn_pointer
       rs[0].source = (uint64_t)leaf;
       rs[0].dest = insert_leaf_addr.to_uint64();
       rs[0].size = define::leafMetadataSize;
@@ -587,7 +586,6 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   read_leaf_cnt += cnt;
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
-  assert(search_res); // FUCK
 search_finish:
 #ifdef TREE_ENABLE_READ_DELEGATION
   local_lock_table->release_local_read_lock(k, lock_res, search_res, v);  // handover the ret leaf addr
@@ -680,6 +678,7 @@ re_read:
     }
 // #endif
   }
+  assert(false);
   return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null(), read_leaf_cnt);
 }
 
