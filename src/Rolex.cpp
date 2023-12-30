@@ -75,9 +75,6 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
 
 inline GlobalAddress RolexIndex::get_leaf_address(int leaf_idx) {
   uint64_t offset = define::kLeafRegionStartOffset + (leaf_idx / MEMORY_NODE_NUM) * ROUND_UP(define::allocationLeafSize, 3);
-  if (!(offset + define::allocationLeafSize < define::synRegionOffset)){
-    printf("FUCK: leaf_idx=%d\n", leaf_idx);
-  }
   assert(offset + define::allocationLeafSize < define::synRegionOffset);
   return GlobalAddress{leaf_idx % MEMORY_NODE_NUM, offset};
 }
@@ -161,10 +158,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
-  static std::random_device rd;
-  static std::mt19937 e(rd());
-  std::uniform_int_distribution<int> u(0, define::leafNumMax-2);
-  insert_idx = u(e);
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
@@ -227,15 +220,15 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       // calculate load factor
       split_hopscotch[dsm->getMyThreadID()] ++;
       int non_empty_entry_cnt = 0;
-      debug_lock.lock();
-      std::cout << "[FUCK]: k=" << key2int(k) << std::endl;
-      for (const auto& e : leaf->records) {
-        std::cout << key2int(e.key) << "\n";
-        if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
-      }
-      std::cout << " cnt=" << non_empty_entry_cnt << std::endl;
-      debug_lock.unlock();
-      assert(false);
+      for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
+      // debug_lock.lock();
+      // std::cout << "[FUCK]: k=" << key2int(k) << std::endl;
+      // for (const auto& e : leaf->records) {
+      //   std::cout << key2int(e.key) << "\n";
+      // }
+      // std::cout << " cnt=" << non_empty_entry_cnt << std::endl;
+      // debug_lock.unlock();
+      // assert(false);
       load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
     }
     if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
