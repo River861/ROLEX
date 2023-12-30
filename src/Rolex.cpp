@@ -574,6 +574,7 @@ read_another:
 #ifdef SPECULATIVE_READ
   idx_cache->add_to_cache(leaf_addr, (leaf_addr == lock_leaf_addr) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 update_entry:
+  leaf->records[kv_idx].update(k, v);
 #endif
 #ifdef HOPSCOTCH_LEAF_NODE
   entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, sink);
