@@ -169,7 +169,7 @@ constexpr uint64_t kOnChipLockNum   = kLockChipMemSize * 8;  // 1bit-lock
 
 // Synonym leaf
 constexpr uint64_t leafNumMax        = 1000000;
-constexpr uint64_t synRegionOffset   = ROUND_UP(leafNumMax * ROUND_UP(define::allocationLeafSize, 3), CACHELINE_ALIGN_BIT); // B
+constexpr uint64_t synRegionOffset   = kLeafRegionStartOffset + ROUND_UP(leafNumMax * ROUND_UP(define::allocationLeafSize, 3), CACHELINE_ALIGN_BIT); // B
 }
 
 
