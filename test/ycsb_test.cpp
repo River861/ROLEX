@@ -81,11 +81,6 @@ DSM *dsm;
 std::vector<Key> train_keys;
 
 
-inline uint64_t key_hash(const Key &k) {
-  return CityHash64((char *)&k, sizeof(k));
-}
-
-
 class RequsetGenBench : public RequstGen {
 public:
   RequsetGenBench(DSM* dsm, Request* req, int req_num, int coro_id, int coro_cnt) :
