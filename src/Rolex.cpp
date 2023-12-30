@@ -587,7 +587,7 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   read_leaf_cnt += cnt;
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
-
+  assert(search_res); // FUCK
 search_finish:
 #ifdef TREE_ENABLE_READ_DELEGATION
   local_lock_table->release_local_read_lock(k, lock_res, search_res, v);  // handover the ret leaf addr
