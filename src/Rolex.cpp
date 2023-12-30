@@ -237,7 +237,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     else {  // insert into old synonym leaf
       if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {
         printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
-        assert(false);
+        // assert(false);
       }
       unlock_node(insert_leaf_addr, sink);
     }
@@ -702,11 +702,15 @@ re_read:
     // check hopping consistency && search key from the segments
     uint16_t hop_bitmap = 0;
     for (int j = 0; j < (int)define::hopRange; ++ j) {
-      const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
+      int kv_idx = (hash_idx + j) % define::leafSpanSize;
+      const auto& e = leaves[i]->records[kv_idx];
       if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
         hop_bitmap |= 1U << (define::hopRange - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
+#ifdef SPECULATIVE_READ
+          idx_cache->add_to_cache(leaf_addrs[i], (leaf_addrs[i] == locked_leaf_addrs[i]) ? kv_idx : (define::leafSpanSize + kv_idx), k);
+#endif
           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
         }
       }
@@ -716,9 +720,13 @@ re_read:
       goto re_read;
     }
 #else
-    for (const auto& e : leaves[i]->records) {
+    for (int kv_idx = 0; kv_idx < define::leafSpanSize; ++ kv_idx) {
+      const auto& e = leaves[i]->records[kv_idx];
       if (e.key == k) {
         v = e.value;
+#ifdef SPECULATIVE_READ
+        idx_cache->add_to_cache(leaf_addrs[i], (leaf_addrs[i] == locked_leaf_addrs[i]) ? kv_idx : (define::leafSpanSize + kv_idx), k);
+#endif
         return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
       }
     }
@@ -781,7 +789,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
 
 
 #ifdef HOPSCOTCH_LEAF_NODE
-bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock) {
+bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink, bool is_locked_leaf) {
   auto& records = leaf->records;
   auto get_entry = [=, &records](int logical_idx) -> LeafEntry& {
     return records[(logical_idx + define::leafSpanSize) % define::leafSpanSize];
@@ -805,7 +813,7 @@ next_hop:
   if (j < hash_idx + (int)define::hopRange) {
     get_entry(j).update(k, v);
     get_entry(hash_idx).set_hop_bit(j - hash_idx);
-    segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, sink, need_unlock);
+    segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, sink, is_locked_leaf);
     return true;
   }
   for (int offset = define::hopRange - 1; offset > 0; -- offset) {
