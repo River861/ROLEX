@@ -225,6 +225,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
         std::cout << key2int(e.key) << " ";
         ++ non_empty_entry_cnt;
       }
+      std::cout << std::endl;
       debug_lock.unlock();
       assert(false);
       load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
