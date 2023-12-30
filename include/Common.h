@@ -141,7 +141,8 @@ constexpr uint32_t cachelineSize   = 64;
 constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
 // Leaf Node
-constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
+// constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
+constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint8_t) * 2 + sizeof(uint64_t) + keyLen * 2;
 #ifdef HOPSCOTCH_LEAF_NODE
 constexpr uint32_t leafEntrySize = versionSize + sizeof(uint8_t) + keyLen + simulatedValLen;
 #else

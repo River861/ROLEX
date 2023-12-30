@@ -5,15 +5,28 @@
 
 
 /* Leaf Metadata: [obj_version, fence keys, sibling pointer] */
+// class LeafMetadata {
+// public:
+//   PackedVersion h_version;
+//   // metadata
+//   GlobalAddress synonym_ptr;
+
+// public:
+//   LeafMetadata() : h_version(), synonym_ptr() {}
+//   LeafMetadata(PackedVersion h_version, GlobalAddress synonym_ptr) : h_version(h_version), synonym_ptr(synonym_ptr) {}
+// } __attribute__((packed));
 class LeafMetadata {
 public:
   PackedVersion h_version;
   // metadata
-  GlobalAddress synonym_ptr;
+  uint8_t level;  // always 0
+  uint8_t valid;
+  GlobalAddress sibling_ptr;
+  FenceKeys fence_keys;
 
 public:
-  LeafMetadata() : h_version(), synonym_ptr() {}
-  LeafMetadata(PackedVersion h_version, GlobalAddress synonym_ptr) : h_version(h_version), synonym_ptr(synonym_ptr) {}
+  LeafMetadata() : h_version(), level(0), valid(1), sibling_ptr(), fence_keys() {}
+  LeafMetadata(PackedVersion h_version, uint8_t level, uint8_t valid, GlobalAddress sibling_ptr, FenceKeys fence_keys) : h_version(h_version), level(level), valid(valid), sibling_ptr(sibling_ptr), fence_keys(fence_keys) {}
 } __attribute__((packed));
 
 static_assert(sizeof(LeafMetadata) == define::leafMetadataSize);
