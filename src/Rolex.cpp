@@ -157,6 +157,10 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   {
   // 1. Fetching
   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
+  static std::random_device rd;
+  static std::mt19937 e(rd());
+  std::uniform_int_distribution<int> u(0, define::leafNumMax);
+  insert_idx = u(e);
   std::vector<GlobalAddress> leaf_addrs;
   std::vector<LeafNode*> _;
   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
