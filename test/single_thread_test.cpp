@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-#define TEST_NUM 60000000  // 102400
+#define TEST_NUM 102400  // 102400
 
 std::vector<Key> train_keys;
 

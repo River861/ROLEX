@@ -540,11 +540,11 @@ read_another:
     goto read_another;
   }
   // 4. Writing and unlock
-#ifdef HOPSCOTCH_LEAF_NODE
-  entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, sink);
-#else
+// #ifdef HOPSCOTCH_LEAF_NODE
+  // entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, sink);
+// #else
   write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
-#endif
+// #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
 
