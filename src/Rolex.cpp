@@ -657,13 +657,13 @@ re_read:
     uint8_t hop_bitmap = 0U;
     for (int j = 0; j < (int)define::hopRange; ++ j) {
       const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
-      if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
+      // if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
         hop_bitmap |= 1U << (define::hopRange - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
         }
-      }
+      // }
     }
     if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
