@@ -31,7 +31,7 @@ public:
   union {
     uint16_t hop_bitmap : define::hopRange;
     uint16_t hop_padding;
-  }
+  };
 #endif
   // kv
   Key key;
