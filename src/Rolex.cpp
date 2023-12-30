@@ -222,7 +222,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       debug_lock.lock();
       std::cout << "[FUCK]: ";
       for (const auto& e : leaf->records) if (e.key != define::kkeyNull) {
-        std::cout << e.key << " ";
+        std::cout << key2int(e.key) << " ";
         ++ non_empty_entry_cnt;
       }
       debug_lock.unlock();
