@@ -40,7 +40,7 @@ int kReadRatio;
 int kThreadCount;
 int kNodeCount;
 
-double kWarmRatio = 0.9;
+double kWarmRatio = 0.5;
 double zipfan = 0.99;
 int kCoroCnt = 8;
 int fix_range_size = -1;
