@@ -1000,6 +1000,7 @@ re_fetch_2:
         !LeafVersionManager::decode_segment_versions(raw_segment_buffer_r, intermediate_buffers_r[i], first_offset_r, segment_size_r, first_metadata_offset_r, new_len_r, segment_node_versions_r) ||
         segment_node_versions_r != segment_node_versions_l) {  // consistency check
         read_leaf_retry[dsm->getMyThreadID()] ++;
+        printf("FUCK2\n");
         goto re_fetch_2;
       }
       bool has_metadata_l = MetadataManager::decode_segment_metadata(intermediate_buffers_l[i], (char*)&(leaves[i]->records[0]), first_metadata_offset_l, segment_size_l, metadata_l);
@@ -1031,6 +1032,7 @@ re_fetch_1:
       auto [first_metadata_offset_r, new_len_r] = MetadataManager::get_offset_info(hash_idx, segment_size_r);
       if (!LeafVersionManager::decode_segment_versions(raw_segment_buffer_r, intermediate_buffers_r[i], first_offset_r, segment_size_r, first_metadata_offset_r, new_len_r, segment_node_versions_r)) {
         read_leaf_retry[dsm->getMyThreadID()] ++;
+        printf("FUCK1\n");
         goto re_fetch_1;
       }
       auto has_metadata = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaves[i]->records[hash_idx]), first_metadata_offset_r, segment_size_r, leaves[i]->metadata);
