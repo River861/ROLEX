@@ -21,12 +21,12 @@ public:
   // metadata
   uint8_t level;  // always 0
   uint8_t valid;
-  GlobalAddress sibling_ptr;
+  GlobalAddress synonym_ptr;
   FenceKeys fence_keys;
 
 public:
-  LeafMetadata() : h_version(), level(0), valid(1), sibling_ptr(), fence_keys() {}
-  LeafMetadata(PackedVersion h_version, uint8_t level, uint8_t valid, GlobalAddress sibling_ptr, FenceKeys fence_keys) : h_version(h_version), level(level), valid(valid), sibling_ptr(sibling_ptr), fence_keys(fence_keys) {}
+  LeafMetadata() : h_version(), level(0), valid(1), synonym_ptr(), fence_keys() {}
+  LeafMetadata(PackedVersion h_version, uint8_t level, uint8_t valid, GlobalAddress synonym_ptr, FenceKeys fence_keys) : h_version(h_version), level(level), valid(valid), synonym_ptr(synonym_ptr), fence_keys(fence_keys) {}
 } __attribute__((packed));
 
 static_assert(sizeof(LeafMetadata) == define::leafMetadataSize);
