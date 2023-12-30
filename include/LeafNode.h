@@ -28,7 +28,10 @@ class LeafEntry {
 public:
   PackedVersion h_version;
 #ifdef HOPSCOTCH_LEAF_NODE
-  uint16_t hop_bitmap : define::hopRange;
+  union {
+    uint16_t hop_bitmap : define::hopRange;
+    uint16_t hop_padding;
+  }
 #endif
   // kv
   Key key;
