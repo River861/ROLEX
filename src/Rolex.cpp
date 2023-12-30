@@ -213,40 +213,26 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
-      syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
-      auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-      syn_leaf = new (syn_buffer) LeafNode;
-      write_leaf = true;
       // calculate load factor
       split_hopscotch[dsm->getMyThreadID()] ++;
       int non_empty_entry_cnt = 0;
       for (const auto& e : leaf->records) if (e.key != define::kkeyNull) ++ non_empty_entry_cnt;
-      debug_lock.lock();
-      std::cout << "[FUCK]: k=" << key2int(k) << " hash_idx=" << get_hashed_leaf_entry_index(k) << "\n";
-      for (int i = 0; i < define::leafSpanSize; ++ i) {
-        const auto& e = leaf->records[i];
-        std::cout << "slot_id=" << i << " key=" << key2int(e.key) << " hash_idx=" << get_hashed_leaf_entry_index(e.key) << "\n";
-      }
-      std::cout << " cnt=" << non_empty_entry_cnt << std::endl;
-      debug_lock.unlock();
-      assert(false);
       load_factor_sum[dsm->getMyThreadID()] += (double)non_empty_entry_cnt / define::leafSpanSize;
-    }
-    if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
-      printf("synonmy leaf is hop-full!!\n");
-      assert(false);
-    }
-    if (write_leaf) {  // new syn leaf
-      leaf->metadata.synonym_ptr = syn_leaf_addr;
+      // allocate new leaf
+      syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
+      auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+      syn_leaf = new (syn_buffer) LeafNode;
+      // write new leaf
+      assert(hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false));
       // write syn_pointer and unlock
+      leaf->metadata.synonym_ptr = syn_leaf_addr;
       std::vector<RdmaOpRegion> rs(2);
       rs[0].source = (uint64_t)leaf;
       rs[0].dest = insert_leaf_addr.to_uint64();
       rs[0].size = define::leafMetadataSize;
       rs[0].is_on_chip = false;
-      // unlock
       auto lock_offset = get_unlock_info(insert_leaf_addr);
-      auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();
+      auto zero_buffer = dsm->get_rbuf(sink).get_zero_8_byte();  // unlock
       rs[1].source = (uint64_t)zero_buffer;
       rs[1].dest = (insert_leaf_addr + lock_offset).to_uint64();
       rs[1].size = sizeof(uint64_t);
@@ -254,8 +240,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       dsm->write_batches_sync(rs, sink);
       syn_leaf_addrs[insert_leaf_addr] = syn_leaf_addr;
     }
-    else {
-      unlock_node(insert_leaf_addr, sink);
+    else if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink)) {  // insert into old synonym leaf
+      printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
+      assert(false);
     }
   }
 #else
