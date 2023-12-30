@@ -132,7 +132,7 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 }
 
 
-void work_func(RolexIndex *rolex, const Request& r, CoroPull *sink) {
+void work_func(RolexIndex *rolex_index, const Request& r, CoroPull *sink) {
   if (r.req_type == SEARCH) {
     Value v;
     rolex_index->search(r.k, v, sink);

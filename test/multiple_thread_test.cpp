@@ -107,7 +107,7 @@ RequstGen *gen_func(DSM* dsm, Request* req, int req_num, int coro_id, int coro_c
 
 
 std::set<Key> load_keys;
-void work_func(RolexIndex *rolex, const Request& r, CoroPull* sink) {
+void work_func(RolexIndex *rolex_index, const Request& r, CoroPull* sink) {
 #ifdef CONDUCT_DEBUG
   if (r.req_type == SEARCH) {
     Value v;
@@ -252,7 +252,7 @@ void thread_run(int id) {
     auto r = gen->next();
 
     timer.begin();
-    work_func(rolex, r, nullptr);
+    work_func(rolex_index, r, nullptr);
     auto us_10 = timer.end() / 100;
 
     if (us_10 >= LATENCY_WINDOWS) {

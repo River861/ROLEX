@@ -210,7 +210,7 @@ void thread_run(int id) {
     auto r = gen->next();
 
     timer.begin();
-    work_func(rolex, r, nullptr);
+    work_func(rolex_index, r, nullptr);
     auto us_10 = timer.end() / 100;
 
     if (us_10 >= LATENCY_WINDOWS) {
