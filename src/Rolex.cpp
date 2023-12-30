@@ -359,6 +359,8 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   for (const auto& leaf_addr : leaf_addrs) {
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
+    auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    leaves.emplace_back((LeafNode*) leaf_buffer);
   }
 
 re_fetch:
@@ -375,14 +377,12 @@ re_fetch:
   }
   dsm->read_batches_sync(rs, sink);
   // consistency check
-  for (auto raw_buffer : raw_buffers) {
-    auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-      leaves.clear();
+  for (int i = 0; i < leaf_addrs.size(); ++ i) {
+    const auto& raw_buffer = raw_buffers[i];
+    if (!(VerMng::decode_node_versions(raw_buffer, (char*)leaves[i]))) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
       goto re_fetch;
     }
-    leaves.emplace_back((LeafNode*) leaf_buffer);
   }
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
@@ -658,18 +658,18 @@ re_read:
     for (int j = 0; j < (int)define::hopRange; ++ j) {
       const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
       // if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
-        hop_bitmap |= 1U << (define::hopRange - j - 1);
+        // hop_bitmap |= 1U << (define::hopRange - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
         }
       // }
     }
-    if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      assert(false);
-      goto re_read;
-    }
+    // if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
+    //   read_leaf_retry[dsm->getMyThreadID()] ++;
+    //   assert(false);
+    //   goto re_read;
+    // }
 #else
     for (const auto& e : leaves[i]->records) {
       if (e.key == k) {
@@ -806,6 +806,8 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   for (const auto& leaf_addr : leaf_addrs) {
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
+    auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    leaves.emplace_back((LeafNode*)leaf_buffer);
   }
 
 re_fetch:
