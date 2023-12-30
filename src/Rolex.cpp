@@ -616,12 +616,13 @@ re_read:
     }
   }
   read_leaf_cnt += leaf_addrs.size();
-#ifdef HOPSCOTCH_LEAF_NODE
+// #ifdef HOPSCOTCH_LEAF_NODE
+//   int hash_idx = get_hashed_leaf_entry_index(k);
+//   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
+// #else
   int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
-#else
   fetch_nodes(leaf_addrs, leaves, sink, false);
-#endif
+// #endif
   // 2. Read cache-miss synonmy leaves (if exists)
   std::vector<GlobalAddress> append_leaf_addrs;
   std::vector<LeafNode*> append_leaves;
@@ -639,11 +640,11 @@ re_read:
   if (!append_leaf_addrs.empty()) {
     leaf_read_syn[dsm->getMyThreadID()] ++;
     read_leaf_cnt += append_leaf_addrs.size();
-#ifdef HOPSCOTCH_LEAF_NODE
-    hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, sink);
-#else
+// #ifdef HOPSCOTCH_LEAF_NODE
+//     hopscotch_fetch_nodes(append_leaf_addrs, hash_idx, append_leaves, sink);
+// #else
     fetch_nodes(append_leaf_addrs, append_leaves, sink);
-#endif
+// #endif
     leaf_addrs.insert(leaf_addrs.end(), append_leaf_addrs.begin(), append_leaf_addrs.end());
     leaves.insert(leaves.end(), append_leaves.begin(), append_leaves.end());
     locked_leaf_addrs.insert(locked_leaf_addrs.end(), append_locked_leaf_addrs.begin(), append_locked_leaf_addrs.end());
