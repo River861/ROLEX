@@ -5,6 +5,7 @@
 #include "Common.h"
 #include "LocalLockTable.h"
 #include "RolexCache.h"
+#include "IdxCache.h"
 #include "MetadataManager.h"
 #include "LeafVersionManager.h"
 #include "VersionManager.h"

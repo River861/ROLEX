@@ -29,6 +29,9 @@ uint64_t leaf_read_syn[MAX_APP_THREAD];
 uint64_t try_read_leaf[MAX_APP_THREAD];
 double load_factor_sum[MAX_APP_THREAD];
 uint64_t split_hopscotch[MAX_APP_THREAD];
+uint64_t correct_speculative_read[MAX_APP_THREAD];
+uint64_t try_speculative_read[MAX_APP_THREAD];
+uint64_t want_speculative_read[MAX_APP_THREAD];
 std::map<uint64_t, uint64_t> range_cnt[MAX_APP_THREAD];
 
 uint64_t latency[MAX_APP_THREAD][MAX_CORO_NUM][LATENCY_WINDOWS];
@@ -70,6 +73,9 @@ inline void RolexIndex::before_operation(CoroPull* sink) {
     try_read_leaf[tid]           = 0;
     // load_factor_sum[tid]         = 0;
     // split_hopscotch[tid]         = 0;
+    correct_speculative_read[tid]= 0;
+    try_speculative_read[tid]    = 0;
+    want_speculative_read[tid]   = 0;
     range_cnt[tid].clear();
     need_clear[tid]              = false;
   }
@@ -508,7 +514,6 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
 #ifdef SPECULATIVE_READ
-  Value old_v;
   auto old_addr = leaf_addr;
   if (speculative_read(leaf_addr, k, old_v, leaf, kv_idx, read_leaf_cnt, sink)) {
     UNUSED(old_v);
@@ -516,6 +521,8 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   }
   leaf_addr = old_addr;
 #endif
+
+  {
 read_another:
   read_leaf_cnt ++;
 #ifdef HOPSCOTCH_LEAF_NODE
@@ -561,6 +568,8 @@ read_another:
     leaf_read_syn[dsm->getMyThreadID()] ++;
     goto read_another;
   }
+  }
+
   // 4. Writing and unlock
 #ifdef SPECULATIVE_READ
   idx_cache->add_to_cache(leaf_addr, (leaf_addr == lock_leaf_addr) ? kv_idx : (define::leafSpanSize + kv_idx), k);
@@ -1253,12 +1262,13 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
 bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, const Key &k, Value &v, LeafNode*& leaf,
                                   int& speculative_idx, int& read_leaf_cnt, CoroPull* sink) {
   auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
+  want_speculative_read[dsm->getMyThreadID()] ++;
 
   auto raw_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   leaf = (LeafNode *)leaf_buffer;
   if (idx_cache->search_idx_from_cache(leaf_addr, 0, define::leafSpanSize * 2, k, speculative_idx)) {
-    if (speculative_idx >= define::leafSpanSize && syn_leaf_addrs.find(syn_leaf_addrs) == syn_leaf_addrs.end()) return false;
+    if (speculative_idx >= define::leafSpanSize && syn_leaf_addrs.find(leaf_addr) == syn_leaf_addrs.end()) return false;
     // read entry
     try_speculative_read[dsm->getMyThreadID()] ++;
     read_leaf_cnt ++;
@@ -1393,5 +1403,8 @@ void RolexIndex::clear_debug_info() {
   memset(leaf_read_syn, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   memset(load_factor_sum, 0, sizeof(double) * MAX_APP_THREAD);
   memset(split_hopscotch, 0, sizeof(uint64_t) * MAX_APP_THREAD);
+  memset(correct_speculative_read, 0, sizeof(uint64_t) * MAX_APP_THREAD);
+  memset(try_speculative_read, 0, sizeof(uint64_t) * MAX_APP_THREAD);
+  memset(want_speculative_read, 0, sizeof(uint64_t) * MAX_APP_THREAD);
   for (int i = 0; i > MAX_APP_THREAD; ++ i) range_cnt[i].clear();
 }

@@ -29,6 +29,9 @@ extern uint64_t leaf_read_syn[MAX_APP_THREAD];
 extern uint64_t try_read_leaf[MAX_APP_THREAD];
 extern double load_factor_sum[MAX_APP_THREAD];
 extern uint64_t split_hopscotch[MAX_APP_THREAD];
+extern uint64_t correct_speculative_read[MAX_APP_THREAD];
+extern uint64_t try_speculative_read[MAX_APP_THREAD];
+extern uint64_t want_speculative_read[MAX_APP_THREAD];
 extern std::map<uint64_t, uint64_t> range_cnt[MAX_APP_THREAD];
 
 int kReadRatio;
@@ -344,6 +347,13 @@ int main(int argc, char *argv[]) {
       split_hopscotch_cnt += split_hopscotch[i];
     }
 
+    uint64_t correct_speculative_read_cnt = 0, try_speculative_read_cnt = 0, want_speculative_read_cnt = 0;
+    for (int i = 0; i < MAX_APP_THREAD; ++i) {
+      correct_speculative_read_cnt += correct_speculative_read[i];
+      try_speculative_read_cnt += try_speculative_read[i];
+      want_speculative_read_cnt += want_speculative_read[i];
+    }
+
     std::map<uint64_t, uint64_t> range_cnt_sum;
     uint64_t range_cnt_sum_total = 0;
     for (int i = 0; i < MAX_APP_THREAD; ++i) {
@@ -381,6 +391,8 @@ int main(int argc, char *argv[]) {
       printf("read leaf retry rate: %.4lf\n", read_leaf_retry_cnt * 1.0 / try_read_leaf_cnt);
       printf("read sibling leaf rate: %.4lf\n", leaf_read_syn_cnt * 1.0 / try_read_leaf_cnt);
       printf("avg. leaf load factor: %.4lf\n", load_factor_sum_all * 1.0 / split_hopscotch_cnt);
+      printf("speculative read rate: %.4lf\n", try_speculative_read_cnt * 1.0 / want_speculative_read_cnt);
+      printf("correct ratio of speculative read: %.4lf\n", correct_speculative_read_cnt * 1.0 / try_speculative_read_cnt);
       printf("\n");
     }
   }
