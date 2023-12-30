@@ -646,7 +646,7 @@ re_read:
   for (int i = 0; i < (int)leaves.size(); ++ i) {
 #ifdef HOPSCOTCH_LEAF_NODE
     // check hopping consistency && search key from the segments
-    uint8_t hop_bitmap = 0U;
+    uint16_t hop_bitmap = 0;
     for (int j = 0; j < (int)define::hopRange; ++ j) {
       const auto& e = leaves[i]->records[(hash_idx + j) % define::leafSpanSize];
       if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
