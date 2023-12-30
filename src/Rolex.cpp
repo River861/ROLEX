@@ -16,6 +16,7 @@
 #include <chrono>
 #include <functional>
 #include <mutex>
+#include <random>
 std::mutex debug_lock;
 
 uint64_t lock_fail[MAX_APP_THREAD];
