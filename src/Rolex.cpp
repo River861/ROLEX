@@ -1399,6 +1399,9 @@ void RolexIndex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func)
 
 void RolexIndex::statistics() {
   rolex_cache->statistics();
+#ifdef SPECULATIVE_READ
+  idx_cache->statistics();
+#endif
 }
 
 void RolexIndex::clear_debug_info() {
