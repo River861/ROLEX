@@ -517,6 +517,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
 #ifdef SPECULATIVE_READ
+  want_speculative_read[dsm->getMyThreadID()] ++;
   auto old_addr = leaf_addr;
 #ifdef HOPSCOTCH_LEAF_NODE
     auto p = std::make_pair(hash_idx, (hash_idx + define::hopRange) % define::leafSpanSize);
@@ -653,6 +654,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
   auto [l, r] = rolex_cache->search_from_cache(k);
 
 #ifdef SPECULATIVE_READ
+  want_speculative_read[dsm->getMyThreadID()] ++;
   for (int i = l; i <= r; ++ i) {
     LeafNode* leaf;
     int kv_idx;
@@ -1293,7 +1295,6 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
 bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, std::pair<int, int> range, const Key &k, Value &v, LeafNode*& leaf,
                                   int& speculative_idx, int& read_leaf_cnt, CoroPull* sink) {
   auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
-  want_speculative_read[dsm->getMyThreadID()] ++;
 
   auto raw_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
