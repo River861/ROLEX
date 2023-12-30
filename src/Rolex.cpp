@@ -94,7 +94,8 @@ inline uint64_t RolexIndex::get_unlock_info(const GlobalAddress &node_addr) {
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(ScatteredLeafNode), define::versionSize);
 #else
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(LeafNode), define::versionSize);
-#endif  return leaf_lock_offset;
+#endif
+  return leaf_lock_offset;
 }
 
 
