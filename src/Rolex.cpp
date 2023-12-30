@@ -366,11 +366,9 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
 re_fetch:
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
-    const auto& leaf_addr = leaf_addrs[i];
-    const auto& raw_buffer = raw_buffers[i];
     RdmaOpRegion r;
-    r.source     = (uint64_t)raw_buffer;
-    r.dest       = leaf_addr.to_uint64();
+    r.source     = (uint64_t)raw_buffers[i];
+    r.dest       = leaf_addrs[i].to_uint64();
     r.size       = define::transLeafSize;
     r.is_on_chip = false;
     rs.emplace_back(r);
@@ -378,8 +376,7 @@ re_fetch:
   dsm->read_batches_sync(rs, sink);
   // consistency check
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
-    const auto& raw_buffer = raw_buffers[i];
-    if (!(VerMng::decode_node_versions(raw_buffer, (char*)leaves[i]))) {
+    if (!(VerMng::decode_node_versions(raw_buffers[i], (char*)leaves[i]))) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
       goto re_fetch;
     }
@@ -620,7 +617,6 @@ re_read:
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, false);
 #else
-  int hash_idx = get_hashed_leaf_entry_index(k);
   fetch_nodes(leaf_addrs, leaves, sink, false);
 #endif
   // 2. Read cache-miss synonmy leaves (if exists)
@@ -803,7 +799,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   auto [raw_offset_l, raw_len_l, first_offset_l] = VerMng::get_offset_info(0, segment_size_l);
   assert(segment_size_l > 0 || !raw_len_l);
 
-  for (const auto& leaf_addr : leaf_addrs) {
+  for (int i = 0; i < leaf_addrs.size(); ++ i) {
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
