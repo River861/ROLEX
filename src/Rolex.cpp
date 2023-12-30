@@ -654,7 +654,6 @@ re_read:
     }
     if (hop_bitmap != leaves[i]->records[hash_idx].hop_bitmap) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
-      assert(false);
       goto re_read;
     }
 #else
@@ -666,7 +665,6 @@ re_read:
     }
 #endif
   }
-  assert(false);
   return std::make_tuple(false, GlobalAddress::Null(), GlobalAddress::Null(), read_leaf_cnt);
 }
 
