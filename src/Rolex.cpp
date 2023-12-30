@@ -1006,19 +1006,36 @@ re_fetch_2:
       bool has_metadata_r = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaves[i]->records[hash_idx]), first_metadata_offset_r, segment_size_r, metadata_r);
       assert(has_metadata_l || has_metadata_l);
       if (has_metadata_l && has_metadata_r) assert(metadata_l == metadata_r);
-      leaf->metadata = (has_metadata_l ? metadata_l : metadata_r);
+      leaves[i]->metadata = (has_metadata_l ? metadata_l : metadata_r);
     }
+  }
   else {  // read only one hop segment
 re_fetch_1:
-    dsm->read_sync(raw_segment_buffer_r, node_addr + raw_offset_r, raw_len_r, sink);
-    uint8_t segment_node_versions_r = 0;
-    auto [first_metadata_offset_r, new_len_r] = MetadataManager::get_offset_info(hash_idx, segment_size_r);
-    if (!LeafVersionManager::decode_segment_versions(raw_segment_buffer_r, intermediate_buffers_r[i], first_offset_r, segment_size_r, first_metadata_offset_r, new_len_r, segment_node_versions_r)) {
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      goto re_fetch_1;
+    rs.clear();
+    for (int i = 0; i < leaf_addrs.size(); ++ i) {
+      auto raw_segment_buffer_r = raw_buffers[i] + raw_offset_r;
+
+      RdmaOpRegion r2;
+      r2.source     = (uint64_t)raw_segment_buffer_r;
+      r2.dest       = (leaf_addrs[i] + raw_offset_r).to_uint64();
+      r2.size       = raw_len_r;
+      r2.is_on_chip = false;
+      rs.emplace_back(r2);
     }
-    auto has_metadata = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaf->records[hash_idx]), first_metadata_offset_r, segment_size_r, leaf->metadata);
-    assert(has_metadata);
+    dsm->read_batches_sync(rs, sink);
+    // consistency check
+    for (int i = 0; i < leaf_addrs.size(); ++ i) {
+      auto raw_segment_buffer_r = raw_buffers[i] + raw_offset_r;
+
+      uint8_t segment_node_versions_r = 0;
+      auto [first_metadata_offset_r, new_len_r] = MetadataManager::get_offset_info(hash_idx, segment_size_r);
+      if (!LeafVersionManager::decode_segment_versions(raw_segment_buffer_r, intermediate_buffers_r[i], first_offset_r, segment_size_r, first_metadata_offset_r, new_len_r, segment_node_versions_r)) {
+        read_leaf_retry[dsm->getMyThreadID()] ++;
+        goto re_fetch_1;
+      }
+      auto has_metadata = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaves[i]->records[hash_idx]), first_metadata_offset_r, segment_size_r, leaves[i]->metadata);
+      assert(has_metadata);
+    }
   }
 #else
   auto [raw_offset_r, raw_len_r, first_offset_r] = VerMng::get_offset_info(hash_idx, segment_size_r);
@@ -1169,8 +1186,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
   auto get_info_and_encode_versions = [=, &entry, &metadata](int idx){
     auto intermediate_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto [first_metadata_offset, new_len] = MetadataManager::get_offset_info(idx);
-    MetadataManager::encode_segment_metadata((char *)&entry, intermediate_segment_buffer, first_metadata_offset, 1,
-                                              LeafMetadata(metadata.h_version, 0, metadata.valid, metadata.synonym_ptr, metadata.fence_keys));
+    MetadataManager::encode_segment_metadata((char *)&entry, intermediate_segment_buffer, first_metadata_offset, 1, metadata);
     auto [raw_offset, raw_len, first_offset] = LeafVersionManager::get_offset_info(idx);
     LeafVersionManager::encode_segment_versions(intermediate_segment_buffer, encoded_entry_buffer, first_offset, std::vector<int>{idx}, idx, idx, first_metadata_offset, new_len);
     return std::make_pair(raw_offset, raw_len);

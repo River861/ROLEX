@@ -48,7 +48,7 @@ inline void MetadataManager::encode_node_metadata(char *input_buffer, char *outp
   auto scatter_leaf = (ScatteredLeafNode *)output_buffer;
   int i = 0;
   for (auto& group : scatter_leaf->record_groups) {
-    group.metadata = ScatteredMetadata(leaf->metadata);
+    group.metadata = leaf->metadata;
     for (auto& record : group.records) {
       record = leaf->records[i ++];
       if (i == define::leafSpanSize) return;
@@ -71,7 +71,7 @@ inline bool MetadataManager::decode_segment_metadata(char *input_buffer, char *o
     i += sizeof(ScatteredMetadata);
     memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::groupSize, segment_len - j));
   }
-  metadata = scattered_metadata;
+  metadata = *scattered_metadata;
   return true;
 }
 
