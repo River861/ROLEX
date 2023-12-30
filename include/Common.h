@@ -151,7 +151,7 @@ constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize +
 constexpr uint32_t allocationLeafSize = transLeafSize + 8UL;  // remain space for the lock
 
 // Hopscotch Hashing
-constexpr uint32_t hopRange = 8;
+constexpr uint32_t hopRange = 4;
 constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
 constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 
