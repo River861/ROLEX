@@ -48,12 +48,12 @@ int main() {
   printf("update passed.\n");
 
   // test search
-  // for (uint64_t i = 1; i <= TEST_NUM; ++i) {
-  //   assert(!rolex_index->search(int2key(TEST_NUM + i), v));
-  // }
+  for (uint64_t i = 1; i <= TEST_NUM; ++i) {
+    assert(!rolex_index->search(int2key(TEST_NUM + i), v));
+  }
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
     auto res = rolex_index->search(int2key(i), v);
-    // std::cout << "search result:  " << (bool)res << " v: " << v << " ans: " << i * 3 << std::endl;
+    std::cout << "search result:  " << (bool)res << " v: " << v << " ans: " << i * 3 << std::endl;
     assert(res && v == i * 3);
     // assert(res && v == i * 2);
   }
