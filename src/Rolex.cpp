@@ -240,9 +240,12 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       dsm->write_batches_sync(rs, sink);
       syn_leaf_addrs[insert_leaf_addr] = syn_leaf_addr;
     }
-    else if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink)) {  // insert into old synonym leaf
-      printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
-      assert(false);
+    else {
+      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // insert into old synonym leaf
+        printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
+        assert(false);
+      }
+      unlock_node(insert_leaf_addr, sink);
     }
   }
 #else
