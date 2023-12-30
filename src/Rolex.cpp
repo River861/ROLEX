@@ -834,7 +834,7 @@ re_fetch:
     auto raw_segment_buffer_r = raw_buffer + raw_offset_r;
     auto raw_segment_buffer_l = raw_buffer + raw_offset_l;
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    auto leaf = new (leaf_buffer) LeafNode;
+    auto leaf = (LeafNode*)leaf_buffer;
     uint8_t metadata_node_version = 0, segment_node_versions_r = 0, segment_node_versions_l = 0;
     if (!VerMng::decode_header_versions(raw_buffer, leaf_buffer, metadata_node_version) ||
         (segment_size_l > 0 && !VerMng::decode_segment_versions(raw_segment_buffer_l, (char*)&(leaf->records[0]), first_offset_l, segment_size_l, segment_node_versions_l)) ||
