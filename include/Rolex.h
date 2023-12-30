@@ -4,8 +4,10 @@
 #include "DSM.h"
 #include "Common.h"
 #include "LocalLockTable.h"
-#include "VersionManager.h"
 #include "RolexCache.h"
+#include "MetadataManager.h"
+#include "LeafVersionManager.h"
+#include "VersionManager.h"
 
 #include <atomic>
 #include <city.h>

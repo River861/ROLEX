@@ -90,8 +90,11 @@ inline std::pair<uint64_t, uint64_t> RolexIndex::get_lock_info(const GlobalAddre
 
 
 inline uint64_t RolexIndex::get_unlock_info(const GlobalAddress &node_addr) {
+#ifdef SCATTERED_LEAF_METADATA
+  static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(ScatteredLeafNode), define::versionSize);
+#else
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(LeafNode), define::versionSize);
-  return leaf_lock_offset;
+#endif  return leaf_lock_offset;
 }
 
 
@@ -106,7 +109,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, CoroPull* sink) {
   int cnt = 0;
 re_acquire:
   if (!acquire_lock(node_addr)){
-    if (cnt ++ > 1000000) {
+    if (cnt ++ > 10000000) {
       std::cout << "dead lock!" << std::endl;
       assert(false);
     }
@@ -326,12 +329,19 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
+#ifdef SCATTERED_LEAF_METADATA
+  std::vector<char*> intermediate_buffers;
+#endif
 
   for (const auto& leaf_addr : leaf_addrs) {
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     leaves.emplace_back((LeafNode*) leaf_buffer);
+#ifdef SCATTERED_LEAF_METADATA
+    auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    intermediate_buffers.emplace_back(intermediate_buffer);
+#endif
   }
 
 re_fetch:
@@ -347,10 +357,18 @@ re_fetch:
   dsm->read_batches_sync(rs, sink);
   // consistency check
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
+#ifdef SCATTERED_LEAF_METADATA
+    if (!(LeafVersionManager::decode_node_versions(raw_buffers[i], intermediate_buffers[i]))) {
+      read_leaf_retry[dsm->getMyThreadID()] ++;
+      goto re_fetch;
+    }
+    MetadataManager::decode_node_metadata(intermediate_buffers[i], (char*)leaves[i]);
+#else
     if (!(VerMng::decode_node_versions(raw_buffers[i], (char*)leaves[i]))) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
       goto re_fetch;
     }
+#endif
   }
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
@@ -367,7 +385,13 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
   std::vector<RdmaOpRegion> rs;
   for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+#ifdef SCATTERED_LEAF_METADATA
+    auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffer);
+    LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
+#else
     VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffer);
+#endif
     RdmaOpRegion r;
     r.source = (uint64_t)encoded_leaf_buffer;
     r.dest = leaf_addrs[i].to_uint64();
@@ -394,14 +418,25 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+#ifdef SCATTERED_LEAF_METADATA
+  auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+#endif
   leaf = (LeafNode *) leaf_buffer;
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
+#ifdef SCATTERED_LEAF_METADATA
+    if (!(LeafVersionManager::decode_node_versions(raw_buffer, intermediate_buffer))) {
+      read_leaf_retry[dsm->getMyThreadID()] ++;
+      goto re_fetch;
+    }
+    MetadataManager::decode_node_metadata(intermediate_buffer, leaf_buffer);
+#else
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
     goto re_read;
   }
+#else
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
     coro_syn_leaf_addrs[sink ? sink->get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
@@ -410,7 +445,13 @@ re_read:
 
 void RolexIndex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+#ifdef SCATTERED_LEAF_METADATA
+  auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  MetadataManager::encode_node_metadata((char*)leaf, intermediate_leaf_buffer);
+  LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
+#else
   VerMng::encode_node_versions((char*)leaf, encoded_leaf_buffer);
+#endif
 
   std::vector<RdmaOpRegion> rs(2);
   rs[0].source = (uint64_t)encoded_leaf_buffer;
@@ -787,12 +828,24 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
   leaf->metadata.synonym_ptr = synonym_addr;
   // write synonym leaf
   auto encoded_synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+#ifdef SCATTERED_LEAF_METADATA
+  auto intermediate_synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  MetadataManager::encode_node_metadata(synonym_buffer, intermediate_synonym_buffer);
+  LeafVersionManager::encode_node_versions(intermediate_synonym_buffer, encoded_synonym_buffer);
+#else
   VerMng::encode_node_versions(synonym_buffer, encoded_synonym_buffer);
+#endif
   dsm->write_sync_without_sink(encoded_synonym_buffer, synonym_addr, define::transLeafSize, sink, &busy_waiting_queue);
 
   // wirte split node and unlock
   auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+#ifdef SCATTERED_LEAF_METADATA
+  auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+  MetadataManager::encode_node_metadata((char *)leaf, intermediate_leaf_buffer);
+  LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
+#else
   VerMng::encode_node_versions((char *)leaf, encoded_leaf_buffer);
+#endif
   memset(encoded_leaf_buffer + define::transLeafSize, 0, sizeof(uint64_t));  // unlock
   dsm->write_sync_without_sink(encoded_leaf_buffer, node_addr, define::transLeafSize + sizeof(uint64_t), sink, &busy_waiting_queue);
 }
@@ -887,20 +940,90 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
-
-  auto segment_size_r = std::min((int)define::hopRange, (int)define::leafSpanSize - hash_idx);
-  auto segment_size_l = define::hopRange <= (int)define::leafSpanSize - hash_idx ? 0 : define::hopRange - ((int)define::leafSpanSize - hash_idx);
-
-  auto [raw_offset_r, raw_len_r, first_offset_r] = VerMng::get_offset_info(hash_idx, segment_size_r);
-  auto [raw_offset_l, raw_len_l, first_offset_l] = VerMng::get_offset_info(0, segment_size_l);
-  assert(segment_size_l > 0 || !raw_len_l);
+#ifdef SCATTERED_LEAF_METADATA
+  std::vector<char*> intermediate_buffers_l;
+  std::vector<char*> intermediate_buffers_r;
+#endif
 
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     leaves.emplace_back((LeafNode*) leaf_buffer);
+#ifdef SCATTERED_LEAF_METADATA
+    auto intermediate_buffer_l = (dsm->get_rbuf(sink)).get_segment_buffer();
+    auto intermediate_buffer_r = (dsm->get_rbuf(sink)).get_segment_buffer();
+    intermediate_buffers_l.emplace_back(intermediate_buffer_l);
+    intermediate_buffers_r.emplace_back(intermediate_buffer_r);
+#endif
   }
+
+  auto segment_size_r = std::min((int)define::hopRange, (int)define::leafSpanSize - hash_idx);
+  auto segment_size_l = define::hopRange <= (int)define::leafSpanSize - hash_idx ? 0 : define::hopRange - ((int)define::leafSpanSize - hash_idx);
+
+#ifdef SCATTERED_LEAF_METADATA
+  auto [raw_offset_r, raw_len_r, first_offset_r] = LeafVersionManager::get_offset_info(hash_idx, segment_size_r);
+  auto [raw_offset_l, raw_len_l, first_offset_l] = LeafVersionManager::get_offset_info(0, segment_size_l);
+  assert(segment_size_l > 0 || !raw_len_l);
+
+  if (raw_len_l) {  // read two hop segments (corner case)
+re_fetch_2:
+    rs.clear();
+    for (int i = 0; i < leaf_addrs.size(); ++ i) {
+      auto raw_segment_buffer_r = raw_buffers[i] + raw_offset_r;
+      auto raw_segment_buffer_l = raw_buffers[i] + raw_offset_l;
+
+      RdmaOpRegion r1, r2;
+      r1.source     = (uint64_t)raw_segment_buffer_l;
+      r1.dest       = (leaf_addrs[i] + raw_offset_l).to_uint64();
+      r1.size       = raw_len_l;
+      r1.is_on_chip = false;
+      rs.emplace_back(r1);
+
+      r2.source     = (uint64_t)raw_segment_buffer_r;
+      r2.dest       = (leaf_addrs[i] + raw_offset_r).to_uint64();
+      r2.size       = raw_len_r;
+      r2.is_on_chip = false;
+      rs.emplace_back(r2);
+    }
+    dsm->read_batches_sync(rs, sink);
+    // consistency check
+    for (int i = 0; i < leaf_addrs.size(); ++ i) {
+      auto raw_segment_buffer_r = raw_buffers[i] + raw_offset_r;
+      auto raw_segment_buffer_l = raw_buffers[i] + raw_offset_l;
+
+      uint8_t segment_node_versions_r = 0, segment_node_versions_l = 0;
+      LeafMetadata metadata_l, metadata_r;
+      auto [first_metadata_offset_l, new_len_l] = MetadataManager::get_offset_info(0, segment_size_l);
+      auto [first_metadata_offset_r, new_len_r] = MetadataManager::get_offset_info(hash_idx, segment_size_r);
+      if (!LeafVersionManager::decode_segment_versions(raw_segment_buffer_l, intermediate_buffers_l[i], first_offset_l, segment_size_l, first_metadata_offset_l, new_len_l, segment_node_versions_l) ||
+        !LeafVersionManager::decode_segment_versions(raw_segment_buffer_r, intermediate_buffers_r[i], first_offset_r, segment_size_r, first_metadata_offset_r, new_len_r, segment_node_versions_r) ||
+        segment_node_versions_r != segment_node_versions_l) {  // consistency check
+        read_leaf_retry[dsm->getMyThreadID()] ++;
+        goto re_fetch_2;
+      }
+      bool has_metadata_l = MetadataManager::decode_segment_metadata(intermediate_buffers_l[i], (char*)&(leaves[i]->records[0]), first_metadata_offset_l, segment_size_l, metadata_l);
+      bool has_metadata_r = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaves[i]->records[hash_idx]), first_metadata_offset_r, segment_size_r, metadata_r);
+      assert(has_metadata_l || has_metadata_l);
+      if (has_metadata_l && has_metadata_r) assert(metadata_l == metadata_r);
+      leaf->metadata = (has_metadata_l ? metadata_l : metadata_r);
+    }
+  else {  // read only one hop segment
+re_fetch_1:
+    dsm->read_sync(raw_segment_buffer_r, node_addr + raw_offset_r, raw_len_r, sink);
+    uint8_t segment_node_versions_r = 0;
+    auto [first_metadata_offset_r, new_len_r] = MetadataManager::get_offset_info(hash_idx, segment_size_r);
+    if (!LeafVersionManager::decode_segment_versions(raw_segment_buffer_r, intermediate_buffers_r[i], first_offset_r, segment_size_r, first_metadata_offset_r, new_len_r, segment_node_versions_r)) {
+      read_leaf_retry[dsm->getMyThreadID()] ++;
+      goto re_fetch_1;
+    }
+    auto has_metadata = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaf->records[hash_idx]), first_metadata_offset_r, segment_size_r, leaf->metadata);
+    assert(has_metadata);
+  }
+#else
+  auto [raw_offset_r, raw_len_r, first_offset_r] = VerMng::get_offset_info(hash_idx, segment_size_r);
+  auto [raw_offset_l, raw_len_l, first_offset_l] = VerMng::get_offset_info(0, segment_size_l);
+  assert(segment_size_l > 0 || !raw_len_l);
 
 re_fetch:
   rs.clear();
@@ -939,6 +1062,7 @@ re_fetch:
       goto re_fetch;
     }
   }
+#endif
   // update syn_leaf_addrs
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {

@@ -20,7 +20,7 @@
 // TODO
 // DEBUG-TREE
 #define HOPSCOTCH_LEAF_NODE
-// #define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
+#define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
 // #define SPECULATIVE_READ
 // DEBUG-SCAN (can boost small-length scan)
 // #define FINE_GRAINED_SCAN
@@ -140,6 +140,11 @@ constexpr uint32_t versionSize     = ROUND_UP(entryVersionBit + nodeVersionBit, 
 constexpr uint32_t cachelineSize   = 64;
 constexpr uint32_t blockSize       = cachelineSize - versionSize;
 
+// Hopscotch Hashing
+constexpr uint32_t hopRange = 8;
+constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
+constexpr uint32_t groupSize     = leafEntrySize * hopRange;
+
 // Leaf Node
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
 #ifdef HOPSCOTCH_LEAF_NODE
@@ -147,13 +152,12 @@ constexpr uint32_t leafEntrySize = versionSize + sizeof(uint16_t) + keyLen + sim
 #else
 constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
 #endif
+#ifdef SCATTERED_LEAF_METADATA
+constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE((leafMetadataSize + leafEntrySize * hopRange) * entryGroupNum, versionSize);
+#else
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize, versionSize);
+#endif
 constexpr uint32_t allocationLeafSize = transLeafSize + 8UL;  // remain space for the lock
-
-// Hopscotch Hashing
-constexpr uint32_t hopRange = 8;
-constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
-constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 
 // Rdma Buffer
 constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;
