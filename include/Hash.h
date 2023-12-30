@@ -23,9 +23,7 @@ inline uint64_t get_hashed_local_lock_index(const GlobalAddress& addr) {
 }
 
 inline uint64_t get_hashed_leaf_entry_index(const Key& k) {
-  std::hash<uint64_t> hasher;
-  return hasher(key2int(k)) % define::leafSpanSize;
-  // return CityHash64((char *)&k, sizeof(k)) % define::leafSpanSize;
+  return CityHash64((char *)&k, sizeof(k)) % define::leafSpanSize;
 }
 
 #define HASH_TABLE_SIZE 1000000
