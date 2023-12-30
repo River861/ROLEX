@@ -40,7 +40,7 @@ thread_local std::vector<CoroPush> RolexIndex::workers;
 thread_local CoroQueue RolexIndex::busy_waiting_queue;
 
 // Auxiliary structure for simplicity
-thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::syn_leaf_addrs;
+thread_local std::map<GlobalAddress, GlobalAddress> RolexIndex::coro_syn_leaf_addrs[MAX_CORO_NUM+1];
 
 
 RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id) : dsm(dsm), rolex_id(rolex_id) {
@@ -136,6 +136,7 @@ void RolexIndex::unlock_node(const GlobalAddress &node_addr, CoroPull* sink, boo
 void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   assert(dsm->is_register());
   before_operation(sink);
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink.get() : 0];
 
   int read_leaf_cnt = 0;
 
@@ -372,7 +373,7 @@ re_fetch:
   }
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
-      syn_leaf_addrs[leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
+      coro_syn_leaf_addrs[sink ? sink.get() : 0][leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
     }
   }
   return;
@@ -421,7 +422,7 @@ re_read:
     goto re_read;
   }
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
-    syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
+    coro_syn_leaf_addrs[sink ? sink.get() : 0][leaf_addr] = leaf->metadata.synonym_ptr;
   }
   return;
 }
@@ -582,6 +583,7 @@ search_finish:
 
 std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Key &k, Value &v, CoroPull* sink) {
   int read_leaf_cnt = 0;
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink.get() : 0];
 
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
@@ -676,6 +678,7 @@ re_read:
 void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value> &ret) {  // [from, to)  TODO: HOPSCOTCH_LEAF_NODE
   assert(dsm->is_register());
   before_operation(nullptr);
+  auto& syn_leaf_addrs = coro_syn_leaf_addrs[MAX_CORO_NUM];
 
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_range_from_cache(from, to);
@@ -835,7 +838,7 @@ re_fetch:
   // update syn_leaf_addrs
   if (update_local_slt) for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     if (leaves[i]->metadata.synonym_ptr != GlobalAddress::Null()) {
-      syn_leaf_addrs[leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
+      coro_syn_leaf_addrs[sink? sink.get() : 0][leaf_addrs[i]] = leaves[i]->metadata.synonym_ptr;
     }
   }
   return;
