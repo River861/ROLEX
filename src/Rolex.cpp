@@ -234,8 +234,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     }
     if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {  // ASSERT: synonmy leaf is hop-full!!
       printf("synonmy leaf is hop-full!!\n");
-      unlock_node(insert_leaf_addr, sink);
-      goto insert_finish;
+      // unlock_node(insert_leaf_addr, sink);
+      // goto insert_finish;
+      assert(false);
     }
     if (write_leaf) {  // new syn leaf
       leaf->metadata.synonym_ptr = syn_leaf_addr;
