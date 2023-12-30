@@ -416,7 +416,7 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-  leaf = new (leaf_buffer) LeafNode;
+  leaf = (LeafNode *) leaf_buffer;
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
@@ -912,7 +912,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     VerMng::encode_segment_versions((char *)&records[l_idx], encoded_segment_buffer_2, first_offset_2, hopped_idxes, l_idx, define::leafSpanSize - 1);
 #endif
     // write segments and unlock
-    std::vector<RdmaOpRegion> rs(3);
+    std::vector<RdmaOpRegion> rs(2);
     rs[0].source = (uint64_t)encoded_segment_buffer_1;
     rs[0].dest = (node_addr + raw_offset_1).to_uint64();
     rs[0].size = raw_len_1;
