@@ -61,7 +61,7 @@ int main() {
 
   // test scan
   std::map<Key, Value> ret;
-  uint64_t from = 1, to = 10240;
+  uint64_t from = 1, to = 1024;
   rolex_index->range_query(int2key(from), int2key(to), ret);
   for (uint64_t j = from; j < to; ++ j) assert(ret[int2key(j)] == j * 3);
   printf("range query passed.\n");

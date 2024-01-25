@@ -19,7 +19,7 @@ workload = sys.argv[1]
 keyType = sys.argv[2]
 CNum = sys.argv[3]
 clientPerNode = sys.argv[4]
-loader_num = '8' if len(sys.argv) == 5 else sys.argv[5]
+loader_num = '4' if len(sys.argv) == 5 else sys.argv[5]  # [CONFIG] 8
 
 print(bcolors.OKGREEN + 'workload = ' + workload)
 print('key type = ' + keyType)

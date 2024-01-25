@@ -35,7 +35,7 @@
 #define LOAD_HEARTBEAT 100000
 // #define USE_CORO
 #define EPOCH_LAT_TEST
-#define LOADER_NUM 8 // [CONFIG] 8
+#define LOADER_NUM 4 // [CONFIG] 8
 
 extern uint64_t lock_fail[MAX_APP_THREAD];
 extern uint64_t write_handover_num[MAX_APP_THREAD];
@@ -324,8 +324,8 @@ void parse_args(int argc, char *argv[]) {
   kCoroCnt = atoi(argv[3]);
   kIsStr = (std::string(argv[4]) == "email");
   kIsScan = (std::string(argv[5]) == "e");
-  ycsb_load_path = "../../HopB-Tree/ycsb/workloads/load_" + std::string(argv[4]) + "_workload" + std::string(argv[5]);
-  ycsb_trans_path = "../../HopB-Tree/ycsb/workloads/txn_" + std::string(argv[4]) + "_workload" + std::string(argv[5]);
+  ycsb_load_path = "../../COMBO/ycsb/workloads/load_" + std::string(argv[4]) + "_workload" + std::string(argv[5]);
+  ycsb_trans_path = "../../COMBO/ycsb/workloads/txn_" + std::string(argv[4]) + "_workload" + std::string(argv[5]);
   if (argc == 7) {
     if(kIsScan) fix_range_size = atoi(argv[6]);
   }

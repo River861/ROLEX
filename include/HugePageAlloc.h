@@ -11,7 +11,7 @@
 #include <numa.h>
 #include <numaif.h>
 
-#define NUMA_NODE 1   // [CONFIG]
+#define NUMA_NODE 0   // [CONFIG] 1   (check from numastat)
 
 
 char *getIP();

@@ -59,8 +59,8 @@ void load_data() {
       LOG(3) << "==== LOAD documentID =====";
 			break;
     case YCSB_A:
-      load_ycsb("../../HopB-Tree/ycsb/workloads/load_randint_workloada");
-      run_ycsb("../../HopB-Tree/ycsb/workloads/txn_randint_workloada");
+      load_ycsb("../../COMBO/ycsb/workloads/load_randint_workloada");
+      run_ycsb("../../COMBO/ycsb/workloads/txn_randint_workloada");
       LOG(3) << "==== LOAD YCSB workload A =====";
       break;
     case YCSB_B:
