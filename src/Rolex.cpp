@@ -850,6 +850,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
     }
   }
 #ifdef ENABLE_VAR_SIZE_KV
+  auto range_buffer = (dsm->get_rbuf(nullptr)).get_range_buffer();
   // read DataBlocks via doorbell batching
   std::map<Key, Value> indirect_values;
   std::vector<RdmaOpRegion> kv_rs;
