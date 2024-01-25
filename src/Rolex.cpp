@@ -602,14 +602,14 @@ update_entry:
 #endif
 
 #ifdef ENABLE_VAR_SIZE_KV
-  auto& target_v = leaf->records[kv_idx].value;
+  auto& target_e = leaf->records[kv_idx];
   // first write a new DataBlock out-of-place
   auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
-  auto data_block = new (block_buffer) DataBlock(target_v);
+  auto data_block = new (block_buffer) DataBlock(target_e.value);
   auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
   dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
   // change value into the DataPointer value pointing to the DataBlock
-  target_v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
+  target_e.update(target_e.key, (uint64_t)DataPointer(define::dataBlockLen, block_addr));
 #endif
 
 #ifdef HOPSCOTCH_LEAF_NODE
