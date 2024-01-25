@@ -556,7 +556,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
     dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
     // change value into the DataPointer value pointing to the DataBlock
     v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
-  }
+  };
 #endif
 
   {
