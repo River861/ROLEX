@@ -28,6 +28,38 @@ inline bool operator==(const PackedGAddr &lhs, const PackedGAddr &rhs) {
 }
 
 
+#ifdef ENABLE_VAR_SIZE_KV
+class DataPointer {
+public:
+  uint64_t    data_len : 64 - define::packedGaddrBit;
+  PackedGAddr ptr;
+
+  DataPointer(const uint64_t data_len, const GlobalAddress& ptr) : data_len(data_len), ptr(ptr) {}
+
+  operator uint64_t() const { return ((uint64_t)ptr << 16) | data_len; }
+  operator std::pair<uint64_t, GlobalAddress>() const { return std::make_pair(data_len, (GlobalAddress)ptr); }
+} __attribute__((packed));
+
+static_assert(sizeof(DataPointer) == 8);
+
+
+class DataBlock {  // For brievity, we assume the whole key can be stored inline, and only changing the value size for evaluation
+public:
+  uint64_t rest_of_key_len = 0;
+  uint64_t value_len;
+  // Key rest_of_key;
+  union {
+  Value value;
+  uint8_t _padding[define::indirectValLen];
+  };
+
+  DataBlock(const Value value) : rest_of_key_len(0), value_len(define::indirectValLen), value(value) {}
+} __attribute__((packed));
+
+static_assert(sizeof(DataBlock) == define::dataBlockLen);
+#endif
+
+
 /* Fence Keys */
 struct FenceKeys {
   Key lowest;

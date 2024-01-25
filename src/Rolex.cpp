@@ -220,6 +220,18 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   local_lock_table->get_combining_value(k, v);
 #endif
 
+#ifdef ENABLE_VAR_SIZE_KV
+  {
+  // first write a new DataBlock out-of-place
+  auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
+  auto data_block = new (block_buffer) DataBlock(v);
+  auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
+  dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
+  // change value into the DataPointer value pointing to the DataBlock
+  v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
+  }
+#endif
+
 #ifdef HOPSCOTCH_LEAF_NODE
   for (const auto& e : leaf->records) if (e.key == k) {  // existing key
     unlock_node(insert_leaf_addr, sink);
@@ -535,6 +547,18 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   leaf_addr = old_addr;
 #endif
 
+#ifdef ENABLE_VAR_SIZE_KV
+  auto write_indirect_value = [&](Value& v){
+    // first write a new DataBlock out-of-place
+    auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
+    auto data_block = new (block_buffer) DataBlock(v);
+    auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
+    dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
+    // change value into the DataPointer value pointing to the DataBlock
+    v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
+  }
+#endif
+
   {
 read_another:
   read_leaf_cnt ++;
@@ -556,6 +580,9 @@ read_another:
 #ifdef TREE_ENABLE_WRITE_COMBINING
       local_lock_table->get_combining_value(k, v);
 #endif
+#ifdef ENABLE_VAR_SIZE_KV
+      write_indirect_value(v);
+#endif
       e.update(k, v);
       break;
     }
@@ -567,6 +594,9 @@ read_another:
       key_is_found = true;
 #ifdef TREE_ENABLE_WRITE_COMBINING
       local_lock_table->get_combining_value(k, v);
+#endif
+#ifdef ENABLE_VAR_SIZE_KV
+      write_indirect_value(v);
 #endif
       e.update(k, v);
       break;
@@ -630,6 +660,16 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   {
   auto [ret, _1, _2, cnt] = _search(k, v, sink);
   search_res = ret;
+#ifdef ENABLE_VAR_SIZE_KV
+  if (search_res) {
+    // read the DataBlock
+    auto block_len = ((DataPointer *)&v)->data_len;
+    auto block_addr = ((DataPointer *)&v)->ptr;
+    auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
+    dsm->read_sync(block_buffer, (GlobalAddress)block_addr, block_len, sink);
+    v = ((DataBlock*)block_buffer)->value;
+  }
+#endif
   read_leaf_cnt += cnt;
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
@@ -809,6 +849,30 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
       }
     }
   }
+#ifdef ENABLE_VAR_SIZE_KV
+  // read DataBlocks via doorbell batching
+  std::map<Key, Value> indirect_values;
+  std::vector<RdmaOpRegion> kv_rs;
+  int kv_cnt = 0;
+  for (const auto& [_, data_ptr] : ret) {
+    auto data_addr = ((DataPointer*)&data_ptr)->ptr;
+    auto data_len  = ((DataPointer*)&data_ptr)->data_len;
+    RdmaOpRegion r;
+    r.source     = (uint64_t)range_buffer + kv_cnt * define::dataBlockLen;
+    r.dest       = ((GlobalAddress)data_addr).to_uint64();
+    r.size       = data_len;
+    r.is_on_chip = false;
+    kv_rs.push_back(r);
+    kv_cnt ++;
+  }
+  dsm->read_batches_sync(kv_rs);
+  kv_cnt = 0;
+  for (auto& [_, v] : ret) {
+    auto data_block = (DataBlock*)(range_buffer + kv_cnt * define::dataBlockLen);
+    v = data_block->value;
+    kv_cnt ++;
+  }
+#endif
   return;
 }
 

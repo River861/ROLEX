@@ -13,6 +13,7 @@ private:
   static const int kSegmentBufferCnt= 256;
   static const int kHeaderBufferCnt = 32;
   static const int kEntryBufferCnt  = 32;
+  static const int kBlockBufferCnt  = 32;
 
   char *buffer;
 
@@ -22,6 +23,7 @@ private:
   char *segment_buffer;
   char *metadata_buffer;
   char *entry_buffer;
+  char *block_buffer;
   char *range_buffer;
   char *zero_byte;
   uint64_t *zero_8_byte;
@@ -32,6 +34,7 @@ private:
   int segment_buffer_cur;
   int metadata_buffer_cur;
   int entry_buffer_cur;
+  int block_buffer_cnr;
 
 public:
   RdmaBuffer() = default;
@@ -44,7 +47,8 @@ public:
     segment_buffer  = (char     *)((char *)leaf_buffer     + define::allocationLeafSize     * kLeafBufferCnt);
     metadata_buffer = (char     *)((char *)segment_buffer  + define::allocationLeafSize     * kSegmentBufferCnt);
     entry_buffer    = (char     *)((char *)metadata_buffer + define::bufferMetadataSize     * kHeaderBufferCnt);
-    zero_byte       = (char     *)((char *)entry_buffer    + define::bufferEntrySize        * kEntryBufferCnt);
+    block_buffer    = (char     *)((char *)entry_buffer    + define::bufferEntrySize        * kEntryBufferCnt);
+    zero_byte       = (char     *)((char *)block_buffer    + define::bufferBlockSize        * kBlockBufferCnt);
     zero_8_byte     = (uint64_t *)((char *)zero_byte       + sizeof(char));
     range_buffer    = (char     *)((char *)zero_8_byte     + sizeof(uint64_t));
     assert(range_buffer - buffer < define::kPerCoroRdmaBuf);
@@ -81,6 +85,13 @@ public:
     entry_buffer_cur = (entry_buffer_cur + 1) % kEntryBufferCnt;
     return entry_buffer + entry_buffer_cur * define::bufferEntrySize;
   }
+
+#ifdef ENABLE_VAR_SIZE_KV
+  char *get_block_buffer() {
+    block_buffer_cnr = (block_buffer_cnr + 1) % kBlockBufferCnt;
+    return block_buffer + block_buffer_cnr * define::bufferBlockSize;
+  }
+#endif
 
   char *get_range_buffer() {
     return range_buffer;

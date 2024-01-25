@@ -21,6 +21,8 @@
 #define HOPSCOTCH_LEAF_NODE
 #define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
 #define SPECULATIVE_READ
+// DEBUG-VL(variable-length)
+#define ENABLE_VAR_SIZE_KV
 
 #define TREE_ENABLE_READ_DELEGATION
 #define TREE_ENABLE_WRITE_COMBINING
@@ -82,6 +84,13 @@ namespace define {
 // KV size
 constexpr uint32_t keyLen = 8;
 constexpr uint32_t simulatedValLen = 8;
+#ifndef ENABLE_VAR_SIZE_KV
+constexpr uint32_t inlineValLen = simulatedValLen;
+#else
+constexpr uint32_t inlineValLen = 8;
+constexpr uint32_t indirectValLen = simulatedValLen;
+constexpr uint32_t dataBlockLen = sizeof(uint64_t) * 2 + 0 + simulatedValLen;
+#endif
 }
 
 using Key = std::array<uint8_t, define::keyLen>;
@@ -141,9 +150,9 @@ constexpr uint32_t blockSize       = cachelineSize - versionSize;
 // Leaf Node
 constexpr uint32_t leafMetadataSize = versionSize + sizeof(uint64_t);
 #ifdef HOPSCOTCH_LEAF_NODE
-constexpr uint32_t leafEntrySize = versionSize + sizeof(uint16_t) + keyLen + simulatedValLen;
+constexpr uint32_t leafEntrySize = versionSize + sizeof(uint16_t) + keyLen + inlineValLen;
 #else
-constexpr uint32_t leafEntrySize = versionSize + keyLen + simulatedValLen;
+constexpr uint32_t leafEntrySize = versionSize + keyLen + inlineValLen;
 #endif
 
 // Hopscotch Hashing
@@ -164,6 +173,11 @@ constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;
 constexpr int64_t  kPerCoroRdmaBuf    = kPerThreadRdmaBuf / MAX_CORO_NUM;
 constexpr uint32_t bufferEntrySize    = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize, versionSize);
 constexpr uint32_t bufferMetadataSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize, versionSize);
+#ifdef ENABLE_VAR_SIZE_KV
+constexpr uint32_t bufferBlockSize    = dataBlockLen;
+#else
+constexpr uint32_t bufferBlockSize    = 0;
+#endif
 
 // On-chip Memory
 constexpr uint64_t kLockStartAddr   = 0;

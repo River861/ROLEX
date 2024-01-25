@@ -36,8 +36,8 @@ public:
   // kv
   Key key;
   union {
-  Value value;
-  uint8_t _padding[define::simulatedValLen];
+  Value value;  // !!!NOTE: with ENABLE_VAR_SIZE_KV turned on, the value in this field will be casted into a DataPointer
+  uint8_t _padding[define::inlineValLen];
   };
 
 public:
