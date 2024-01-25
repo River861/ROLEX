@@ -502,6 +502,18 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   bool write_handover = false;
   std::pair<bool, bool> lock_res = std::make_pair(false, false);
 
+#ifdef ENABLE_VAR_SIZE_KV
+  auto write_indirect_value = [&](Value& v){
+    // first write a new DataBlock out-of-place
+    auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
+    auto data_block = new (block_buffer) DataBlock(v);
+    auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
+    dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
+    // change value into the DataPointer value pointing to the DataBlock
+    v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
+  };
+#endif
+
   int kv_idx;
   try_write_op[dsm->getMyThreadID()]++;
 #ifdef TREE_ENABLE_WRITE_COMBINING
@@ -545,18 +557,6 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
     goto update_entry;
   }
   leaf_addr = old_addr;
-#endif
-
-#ifdef ENABLE_VAR_SIZE_KV
-  auto write_indirect_value = [&](Value& v){
-    // first write a new DataBlock out-of-place
-    auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
-    auto data_block = new (block_buffer) DataBlock(v);
-    auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
-    dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
-    // change value into the DataPointer value pointing to the DataBlock
-    v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
-  };
 #endif
 
   {
