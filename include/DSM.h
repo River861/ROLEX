@@ -218,7 +218,7 @@ public:
   char *get_rdma_buffer() { return rdma_buffer; }
   RdmaBuffer &get_rbuf(CoroPull* sink) { return rbuf[sink ? sink->get() : 0]; }
 
-  GlobalAddress alloc(size_t size, int target_node = -1, uint8_t align_bit = CACHELINE_ALIGN_BIT);
+  GlobalAddress alloc(size_t size, uint8_t align_bit = CACHELINE_ALIGN_BIT, int target_node = -1);
   void free(const GlobalAddress& addr, int size);
 
   void rpc_call_dir(const RawMessage &m, uint16_t node_id,
@@ -241,7 +241,7 @@ public:
   }
 };
 
-inline GlobalAddress DSM::alloc(size_t size, int target_node, uint8_t align_bit) {
+inline GlobalAddress DSM::alloc(size_t size, uint8_t align_bit, int target_node) {
   thread_local int cur_target_node = (this->getMyThreadID() + this->getMyNodeID()) % MEMORY_NODE_NUM;
   thread_local int cur_target_dir_id = (this->getMyThreadID() + this->getMyNodeID()) % NR_DIRECTORY;
   if (++cur_target_dir_id == NR_DIRECTORY) {

@@ -933,7 +933,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
   auto split_key = hopscotch_get_split_key(records, k);
 
   // synonym node
-  auto synonym_addr = dsm->alloc(define::allocationLeafSize, node_addr.nodeID);  // TODO: same MN
+  auto synonym_addr = dsm->alloc(define::allocationLeafSize, CACHELINE_ALIGN_BIT, node_addr.nodeID);
   auto synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto synonym_leaf = new (synonym_buffer) LeafNode;
 
