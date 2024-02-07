@@ -20,7 +20,7 @@
 // Environment Config
 #define MAX_MACHINE 20
 #define MEMORY_NODE_NUM 1
-#define CPU_PHYSICAL_CORE_NUM 8  // [CONFIG]  72
+#define CPU_PHYSICAL_CORE_NUM 72  // [CONFIG]  72
 #define MAX_CORO_NUM 8
 
 #define LATENCY_WINDOWS 100000
@@ -42,7 +42,7 @@
 
 
 // app thread
-#define MAX_APP_THREAD 8    // one additional thread for data statistics(main thread)  [CONFIG] 65
+#define MAX_APP_THREAD 65    // one additional thread for data statistics(main thread)  [CONFIG] 65
 #define APP_MESSAGE_NR 96
 #define POLL_CQ_MAX_CNT_ONCE 8
 
@@ -93,11 +93,11 @@ constexpr uint64_t GB = 1024ull * MB;
 constexpr uint16_t kCacheLineSize = 64;
 
 // Remote Allocation
-constexpr uint64_t dsmSize           = 8;        // GB  [CONFIG] 64
+constexpr uint64_t dsmSize           = 64;        // GB  [CONFIG] 64
 constexpr uint64_t kChunkSize        = 16 * MB;   // B
 
 // Local Allocation
-constexpr uint64_t rdmaBufferSize     = 1;         // GB  [CONFIG] 4
+constexpr uint64_t rdmaBufferSize     = 4;         // GB  [CONFIG] 4
 
 // Rolex
 constexpr uint64_t fakePort            = 8888;
@@ -113,7 +113,7 @@ constexpr int kHotIdxCacheSize = 50;
 // KV
 constexpr uint64_t kKeyMin = 1;
 #ifdef KEY_SPACE_LIMIT
-constexpr uint64_t kKeyMax = 10000000;  // only for int workloads [CONFIG] 60000000
+constexpr uint64_t kKeyMax = 60000000;  // only for int workloads [CONFIG] 60000000
 #endif
 constexpr Key   kkeyNull   = Key{};
 constexpr Value kValueNull = std::numeric_limits<Value>::min();

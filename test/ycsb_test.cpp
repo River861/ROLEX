@@ -35,7 +35,7 @@
 #define LOAD_HEARTBEAT 100000
 // #define USE_CORO
 #define EPOCH_LAT_TEST
-#define LOADER_NUM 4 // [CONFIG] 8
+#define LOADER_NUM 8 // [CONFIG] 8
 
 extern uint64_t lock_fail[MAX_APP_THREAD];
 extern uint64_t write_handover_num[MAX_APP_THREAD];
