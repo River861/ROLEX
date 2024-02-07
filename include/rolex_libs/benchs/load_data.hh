@@ -34,7 +34,7 @@ typedef struct operation_item {
 } operation_item;
 
 struct {
-    size_t operate_num = 60000000;
+    size_t operate_num = 10000000;
     operation_item* operate_queue;
 }YCSBconfig;
 
@@ -59,8 +59,8 @@ void load_data() {
       LOG(3) << "==== LOAD documentID =====";
 			break;
     case YCSB_A:
-      load_ycsb("../../COMBO/ycsb/workloads/load_randint_workloada");
-      run_ycsb("../../COMBO/ycsb/workloads/txn_randint_workloada");
+      load_ycsb("/data/lpf/data/ycsb/uniform/workloada/load.10M");
+      run_ycsb("/data/lpf/data/ycsb/uniform/workloada/run.10M");
       LOG(3) << "==== LOAD YCSB workload A =====";
       break;
     case YCSB_B:
@@ -69,8 +69,8 @@ void load_data() {
       LOG(3) << "==== LOAD YCSB workload B =====";
       break;
     case YCSB_C:
-      load_ycsb("../../DMB-Tree/ycsb/workloads/load_randint_workloadc");
-      run_ycsb("../../DMB-Tree/ycsb/workloads/txn_randint_workloadc");
+      load_ycsb("/data/lpf/data/ycsb/uniform/workloadc/load.10M");
+      run_ycsb("/data/lpf/data/ycsb/uniform/workloadc/run.10M");
       LOG(3) << "==== LOAD YCSB workload C =====";
       break;
     case YCSB_D:
@@ -174,7 +174,7 @@ void load_ycsb(const char *path) {
   ASSERT((ycsb = fopen(path,"r")) != NULL) << "Fail to open YCSB data!";
   
   LOG(3)<< "======== load YCSB data =========";
-  int n = 60000000;
+  int n = 10000000;
   exist_keys.reserve(n);
 	while(getline(&buf,&len,ycsb) != -1){
 	  if(strncmp(buf, "INSERT", 6) == 0){
