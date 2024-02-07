@@ -52,7 +52,7 @@ RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id)
   clear_debug_info();
   // Cache
   rolex_cache = new RolexCache(dsm, load_keys);
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   idx_cache = new IdxCache(define::kHotIdxCacheSize, dsm);
 #endif
   // RDWC
@@ -99,7 +99,7 @@ inline std::pair<uint64_t, uint64_t> RolexIndex::get_lock_info(const GlobalAddre
 
 
 inline uint64_t RolexIndex::get_unlock_info(const GlobalAddress &node_addr) {
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(ScatteredLeafNode), define::versionSize);
 #else
   static const uint64_t leaf_lock_offset         = ADD_CACHELINE_VERSION_SIZE(sizeof(LeafNode), define::versionSize);
@@ -220,7 +220,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   local_lock_table->get_combining_value(k, v);
 #endif
 
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
   {
   // first write a new DataBlock out-of-place
   auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
@@ -351,7 +351,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   std::vector<char*> intermediate_buffers;
 #endif
 
@@ -360,7 +360,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     leaves.emplace_back((LeafNode*) leaf_buffer);
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
     auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     intermediate_buffers.emplace_back(intermediate_buffer);
 #endif
@@ -379,7 +379,7 @@ re_fetch:
   dsm->read_batches_sync(rs, sink);
   // consistency check
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
     if (!(LeafVersionManager::decode_node_versions(raw_buffers[i], intermediate_buffers[i]))) {
       read_leaf_retry[dsm->getMyThreadID()] ++;
       goto re_fetch;
@@ -407,7 +407,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
   std::vector<RdmaOpRegion> rs;
   for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
     auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffer);
     LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
@@ -440,14 +440,14 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 
   auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
 #endif
   leaf = (LeafNode *) leaf_buffer;
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   if (!(LeafVersionManager::decode_node_versions(raw_buffer, intermediate_buffer))) {
     read_leaf_retry[dsm->getMyThreadID()] ++;
     goto re_read;
@@ -467,7 +467,7 @@ re_read:
 
 void RolexIndex::write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink) {
   auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   MetadataManager::encode_node_metadata((char*)leaf, intermediate_leaf_buffer);
   LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
@@ -528,7 +528,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   // 2. Fine-grained locking and re-read
   lock_node(lock_leaf_addr, sink);
   LeafNode* leaf;
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   want_speculative_read[dsm->getMyThreadID()] ++;
   auto old_addr = leaf_addr;
 #ifdef HOPSCOTCH_LEAF_NODE
@@ -595,13 +595,13 @@ read_another:
   }
 
   // 4. Writing and unlock
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   idx_cache->add_to_cache(leaf_addr, (leaf_addr == lock_leaf_addr) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 update_entry:
   leaf->records[kv_idx].update(k, v);
 #endif
 
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
   auto& target_e = leaf->records[kv_idx];
   // first write a new DataBlock out-of-place
   auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
@@ -654,7 +654,7 @@ bool RolexIndex::search(const Key &k, Value &v, CoroPull* sink) {
   {
   auto [ret, _1, _2, cnt] = _search(k, v, sink);
   search_res = ret;
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
   if (search_res) {
     // read the DataBlock
     auto block_len = ((DataPointer *)&v)->data_len;
@@ -687,7 +687,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
 
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   want_speculative_read[dsm->getMyThreadID()] ++;
   for (int i = l; i <= r; ++ i) {
     LeafNode* leaf;
@@ -767,7 +767,7 @@ re_read:
         hop_bitmap |= 1U << (define::hopRange - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
           idx_cache->add_to_cache(leaf_addrs[i], (leaf_addrs[i] == locked_leaf_addrs[i]) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 #endif
           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
@@ -783,7 +783,7 @@ re_read:
       const auto& e = leaves[i]->records[kv_idx];
       if (e.key == k) {
         v = e.value;
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
         idx_cache->add_to_cache(leaf_addrs[i], (leaf_addrs[i] == locked_leaf_addrs[i]) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 #endif
         return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
@@ -843,7 +843,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
       }
     }
   }
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
   auto range_buffer = (dsm->get_rbuf(nullptr)).get_range_buffer();
   // read DataBlocks via doorbell batching
   std::map<Key, Value> indirect_values;
@@ -957,7 +957,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
   leaf->metadata.synonym_ptr = synonym_addr;
   // write synonym leaf
   auto encoded_synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   auto intermediate_synonym_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   MetadataManager::encode_node_metadata(synonym_buffer, intermediate_synonym_buffer);
   LeafVersionManager::encode_node_versions(intermediate_synonym_buffer, encoded_synonym_buffer);
@@ -968,7 +968,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
 
   // wirte split node and unlock
   auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   MetadataManager::encode_node_metadata((char *)leaf, intermediate_leaf_buffer);
   LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
@@ -1069,7 +1069,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   std::vector<char*> intermediate_buffers_l;
   std::vector<char*> intermediate_buffers_r;
 #endif
@@ -1079,7 +1079,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     leaves.emplace_back((LeafNode*) leaf_buffer);
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
     auto intermediate_buffer_l = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto intermediate_buffer_r = (dsm->get_rbuf(sink)).get_segment_buffer();
     intermediate_buffers_l.emplace_back(intermediate_buffer_l);
@@ -1090,7 +1090,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   auto segment_size_r = std::min((int)define::hopRange, (int)define::leafSpanSize - hash_idx);
   auto segment_size_l = define::hopRange <= (int)define::leafSpanSize - hash_idx ? 0 : define::hopRange - ((int)define::leafSpanSize - hash_idx);
 
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   auto [raw_offset_r, raw_len_r, first_offset_r] = LeafVersionManager::get_offset_info(hash_idx, segment_size_r);
   auto [raw_offset_l, raw_len_l, first_offset_l] = LeafVersionManager::get_offset_info(0, segment_size_l);
   assert(segment_size_l > 0 || !raw_len_l);
@@ -1224,7 +1224,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
   const auto& metadata = leaf->metadata;
   if (l_idx <= r_idx) {  // update with one WRITE + unlock
     auto encoded_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
     // segment [l_idx, r_idx]
     auto intermediate_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto [first_metadata_offset, new_len] = MetadataManager::get_offset_info(l_idx, r_idx - l_idx + 1);
@@ -1263,7 +1263,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
   else {  // update with two WRITE + unlock  TODO: threshold => use one WRITE
     auto encoded_segment_buffer_1 = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto encoded_segment_buffer_2 = (dsm->get_rbuf(sink)).get_segment_buffer();
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
     // segment [0, r_idx]
     auto intermediate_segment_buffer_1 = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto [first_metadata_offset_1, new_len_1] = MetadataManager::get_offset_info(0, r_idx + 1);
@@ -1311,7 +1311,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
   auto& entry = leaf->records[idx];
   const auto & metadata = leaf->metadata;
   auto encoded_entry_buffer = (dsm->get_rbuf(sink)).get_entry_buffer();
-#if (defined SCATTERED_LEAF_METADATA && defined HOPSCOTCH_LEAF_NODE)
+#if (defined METADATA_REPLICATION && defined HOPSCOTCH_LEAF_NODE)
   auto get_info_and_encode_versions = [=, &entry, &metadata](int idx){
     auto intermediate_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
     auto [first_metadata_offset, new_len] = MetadataManager::get_offset_info(idx);
@@ -1350,7 +1350,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
 #endif
 
 
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
 bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, std::pair<int, int> range, const Key &k, Value &v, LeafNode*& leaf,
                                   int& speculative_idx, int& read_leaf_cnt, CoroPull* sink) {
   auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
@@ -1387,7 +1387,7 @@ bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, std::pair<int, int> 
 
 void RolexIndex::leaf_entry_read(const GlobalAddress& leaf_addr, const int idx, char *raw_leaf_buffer, char *leaf_buffer, CoroPull* sink) {
   auto leaf = (LeafNode *)leaf_buffer;
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
   auto [raw_offset, raw_len, first_offset] = LeafVersionManager::get_offset_info(idx);
   auto raw_entry_buffer = raw_leaf_buffer + raw_offset;
 re_read:
@@ -1481,7 +1481,7 @@ void RolexIndex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func)
 
 void RolexIndex::statistics() {
   rolex_cache->statistics();
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   idx_cache->statistics();
 #endif
 }

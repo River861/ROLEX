@@ -86,7 +86,7 @@ public:
     return entry_buffer + entry_buffer_cur * define::bufferEntrySize;
   }
 
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
   char *get_block_buffer() {
     block_buffer_cnr = (block_buffer_cnr + 1) % kBlockBufferCnt;
     return block_buffer + block_buffer_cnr * define::bufferBlockSize;

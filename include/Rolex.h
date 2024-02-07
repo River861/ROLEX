@@ -97,7 +97,7 @@ private:
 #endif
 
   // speculative read
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   bool speculative_read(GlobalAddress& leaf_addr, std::pair<int, int> range, const Key &k, Value &v, LeafNode*& leaf, int& speculative_idx, int& read_leaf_cnt, CoroPull* sink);
   void leaf_entry_read(const GlobalAddress& leaf_addr, const int idx, char *raw_leaf_buffer, char *leaf_buffer, CoroPull* sink);
 #endif
@@ -108,7 +108,7 @@ private:
 private:
   DSM *dsm;
   RolexCache* rolex_cache;
-#ifdef SPECULATIVE_READ
+#ifdef SPECULATIVE_POINT_QUERY
   IdxCache *idx_cache;
 #endif
   LocalLockTable *local_lock_table;

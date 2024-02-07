@@ -13,7 +13,7 @@
 #include <vector>
 #include <random>
 
-#define FOOTPRINT_SPECULATIVE_READ
+#define FOOTPRINT_SPECULATIVE_POINT_QUERY
 
 
 struct IdxCacheEntry {
@@ -118,7 +118,7 @@ inline bool IdxCache::search_idx_from_cache(const GlobalAddress& leaf_addr, int 
     uint64_t ht_idx = get_hashed_cache_table_index(leaf_addr, idx);
     auto& bucket = hash_table[ht_idx];
     for (const auto& e : bucket) if (e && e->leaf_addr == leaf_addr && e->kv_idx == idx) {
-#ifdef FOOTPRINT_SPECULATIVE_READ
+#ifdef FOOTPRINT_SPECULATIVE_POINT_QUERY
       if (e->footprint != key2fp(k)) continue;
 #endif
       int32_t cnt = e->cache_entry_freq;

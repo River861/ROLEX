@@ -28,7 +28,7 @@ inline bool operator==(const PackedGAddr &lhs, const PackedGAddr &rhs) {
 }
 
 
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
 class DataPointer {
 public:
   uint64_t    data_len : 64 - define::packedGaddrBit;

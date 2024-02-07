@@ -12,9 +12,11 @@ set(LINKS_FLAGS "-lnuma -lcityhash -lboost_system -lboost_coroutine -lboost_cont
 #Env Options
 option (STATIC_MN_IP "Use static MNs according the IPs of the nodes" OFF)
 option (ENABLE_CORO "Turn on the coroutine" ON)
-option (LONG_TEST_EPOCH "Use big epoch num and long epoch duration" OFF)
 option (SHORT_TEST_EPOCH "Use small epoch num and short epoch duration" OFF)
 option (MIDDLE_TEST_EPOCH "Use middle epoch num and short epoch duration" OFF)
+option (LONG_TEST_EPOCH "Use big epoch num and long epoch duration" OFF)
+option (READ_DELEGATION "Turn on read delegation technique" OFF)
+option (WRITE_COMBINING "Turn on write combining technique" OFF)
 
 if(STATIC_MN_IP)
     add_definitions(-DSTATIC_ID_FROM_IP)
@@ -26,12 +28,6 @@ if(ENABLE_CORO)
     add_definitions(-DUSE_CORO)
 else()
     remove_definitions(-DUSE_CORO)
-endif()
-
-if(LONG_TEST_EPOCH)
-    add_definitions(-DLONG_TEST_EPOCH)
-else()
-    remove_definitions(-DLONG_TEST_EPOCH)
 endif()
 
 if(SHORT_TEST_EPOCH)
@@ -46,6 +42,48 @@ else()
     remove_definitions(-DMIDDLE_TEST_EPOCH)
 endif()
 
+if(LONG_TEST_EPOCH)
+    add_definitions(-DLONG_TEST_EPOCH)
+else()
+    remove_definitions(-DLONG_TEST_EPOCH)
+endif()
+
+if(READ_DELEGATION)
+    add_definitions(-DTREE_ENABLE_READ_DELEGATION)
+else()
+    remove_definitions(-DTREE_ENABLE_READ_DELEGATION)
+endif()
+
+if(WRITE_COMBINING)
+    add_definitions(-DTREE_ENABLE_WRITE_COMBINING)
+else()
+    remove_definitions(-DTREE_ENABLE_WRITE_COMBINING)
+endif()
+
+#Tree Options
+option (HOPSCOTCH_LEAF_NODE "+ Hopscotch leaf node" OFF)
+option (METADATA_REPLICATION "+ Metadata replication" OFF)
+option (SPECULATIVE_POINT_QUERY "+ Speculative point query" OFF)
+# Variable-length KV
+option (ENABLE_VAR_LEN_KV "Turn on the support for variable-length KVs" OFF)
+
+if(HOPSCOTCH_LEAF_NODE)
+    add_definitions(-DHOPSCOTCH_LEAF_NODE)
+else()
+    remove_definitions(-DHOPSCOTCH_LEAF_NODE)
+endif()
+
+if(METADATA_REPLICATION)
+    add_definitions(-DMETADATA_REPLICATION)
+else()
+    remove_definitions(-DMETADATA_REPLICATION)
+endif()
+
+if(SPECULATIVE_POINT_QUERY)
+    add_definitions(-DSPECULATIVE_POINT_QUERY)
+else()
+    remove_definitions(-DSPECULATIVE_POINT_QUERY)
+endif()
 
 #Include files
 set(INCLUDE_BASE ${PROJECT_SOURCE_DIR}/include)

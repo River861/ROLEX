@@ -17,16 +17,6 @@
 
 #include "WRLock.h"
 
-// DEBUG-TREE
-#define HOPSCOTCH_LEAF_NODE
-#define SCATTERED_LEAF_METADATA        // !!NOTE: should be turned on together with HOPSCOTCH_LEAF_NODE
-#define SPECULATIVE_READ
-// DEBUG-VL(variable-length)
-#define ENABLE_VAR_SIZE_KV
-
-#define TREE_ENABLE_READ_DELEGATION
-#define TREE_ENABLE_WRITE_COMBINING
-
 // Environment Config
 #define MAX_MACHINE 20
 #define MEMORY_NODE_NUM 1
@@ -84,7 +74,7 @@ namespace define {
 // KV size
 constexpr uint32_t keyLen = 8;
 constexpr uint32_t simulatedValLen = 8;
-#ifndef ENABLE_VAR_SIZE_KV
+#ifndef ENABLE_VAR_LEN_KV
 constexpr uint32_t inlineValLen = simulatedValLen;
 #else
 constexpr uint32_t inlineValLen = 8;
@@ -161,7 +151,7 @@ constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hop
 constexpr uint32_t groupSize     = leafEntrySize * hopRange;
 
 // Rdma Read/Write Size
-#ifdef SCATTERED_LEAF_METADATA
+#ifdef METADATA_REPLICATION
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE((leafMetadataSize + leafEntrySize * hopRange) * entryGroupNum, versionSize);
 #else
 constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize, versionSize);
@@ -173,7 +163,7 @@ constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;
 constexpr int64_t  kPerCoroRdmaBuf    = kPerThreadRdmaBuf / MAX_CORO_NUM;
 constexpr uint32_t bufferEntrySize    = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize, versionSize);
 constexpr uint32_t bufferMetadataSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize, versionSize);
-#ifdef ENABLE_VAR_SIZE_KV
+#ifdef ENABLE_VAR_LEN_KV
 constexpr uint32_t bufferBlockSize    = dataBlockLen;
 #else
 constexpr uint32_t bufferBlockSize    = 0;
