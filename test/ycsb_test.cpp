@@ -411,20 +411,19 @@ void load_train_keys() {
     }
   }
   if (kIsInsert) {
+    int range_size = 0;
     std::ifstream trans_in(ycsb_trans_path);
     if (!trans_in.is_open()) {
       printf("Error opening trans file\n");
       assert(false);
     }
     if (!kIsStr) {  // int workloads
-      printf("FUCK 1\n");
       uint64_t int_k;
       while (trans_in >> op >> int_k) {
-        printf("FUCK 2\n");
         k = int2key(int_k);
-        if (op == "INSERT") {
+        if (op == "SCAN") trans_in >> range_size;
+        else if (op == "INSERT") {
           train_keys.emplace_back(k);
-          printf("FUCK 3\n");
           if (++ cnt % LOAD_HEARTBEAT == 0) {
             printf("train-keys: %d load entries loaded.\n", cnt);
           }
