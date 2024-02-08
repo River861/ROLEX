@@ -326,7 +326,6 @@ void parse_args(int argc, char *argv[]) {
   kIsStr = (std::string(argv[4]) == "email");
   kIsScan = (std::string(argv[5]) == "e");
   kIsInsert = ((std::string(argv[5]) == "la") || (std::string(argv[5]) == "e"));
-  printf("FUCK %d\n", (int)kIsInsert);
 
   std::string workload_dir;
   std::ifstream workloads_dir_in("../workloads.conf");
@@ -423,6 +422,7 @@ void load_train_keys() {
         k = int2key(int_k);
         if (op == "INSERT") {
           train_keys.emplace_back(k);
+          printf("FUCK\n");
           if (++ cnt % LOAD_HEARTBEAT == 0) {
             printf("train-keys: %d load entries loaded.\n", cnt);
           }
