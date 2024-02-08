@@ -325,7 +325,8 @@ void parse_args(int argc, char *argv[]) {
   kCoroCnt = atoi(argv[3]);
   kIsStr = (std::string(argv[4]) == "email");
   kIsScan = (std::string(argv[5]) == "e");
-  kIsInsert = (std::string(argv[5]) == "la" || std::string(argv[5]) == "e") ;
+  kIsInsert = ((std::string(argv[5]) == "la") || (std::string(argv[5]) == "e"));
+  printf("FUCK %d\n", (int)kIsInsert);
 
   std::string workload_dir;
   std::ifstream workloads_dir_in("../workloads.conf");
