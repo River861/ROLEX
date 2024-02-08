@@ -417,12 +417,14 @@ void load_train_keys() {
       assert(false);
     }
     if (!kIsStr) {  // int workloads
+      printf("FUCK 1\n");
       uint64_t int_k;
       while (trans_in >> op >> int_k) {
+        printf("FUCK 2\n");
         k = int2key(int_k);
         if (op == "INSERT") {
           train_keys.emplace_back(k);
-          printf("FUCK\n");
+          printf("FUCK 3\n");
           if (++ cnt % LOAD_HEARTBEAT == 0) {
             printf("train-keys: %d load entries loaded.\n", cnt);
           }
