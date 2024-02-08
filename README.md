@@ -1,13 +1,13 @@
-# ROLEX_dev
+# ROLEX
 
 ## Environment Setup
 
 
-1) Set bash as the default shell. And enter the ROLEX_dev directory.
+1) Set bash as the default shell. And enter the ROLEX directory.
     ```shell
     sudo su
     chsh -s /bin/bash
-    cd ROLEX_dev
+    cd ROLEX
     ```
 
 2) Install Mellanox OFED.
@@ -32,7 +32,7 @@
 
 4) Enter the directory. Install libraries and tools.
     ```shell
-    cd ROLEX_dev
+    cd ROLEX
     # This takes about 3 minutes
     sh ./script/installLibs.sh
     ```
@@ -45,7 +45,7 @@ You should run the following steps on **all** nodes.
 1) Download YCSB source code.
     ```shell
     sudo su
-    cd ROLEX_dev/ycsb
+    cd ROLEX/ycsb
     curl -O --location https://github.com/brianfrankcooper/YCSB/releases/download/0.11.0/ycsb-0.11.0.tar.gz
     tar xfvz ycsb-0.11.0.tar.gz
     mv ycsb-0.11.0 YCSB
@@ -71,7 +71,7 @@ You should run the following steps on **all** nodes.
     ulimit -l unlimited
     ```
 
-* Return to the root directory and execute the following commands on **all** nodes to compile ROLEX_dev:
+* Return to the root directory and execute the following commands on **all** nodes to compile ROLEX:
     ```shell
     mkdir build; cd build; cmake ..; make -j
     ```
@@ -107,7 +107,7 @@ You should run the following steps on **all** nodes.
     ```
 
 * Results:
-    * Throughput: the throughput of **ROLEX_dev** among all the cluster will be shown in the terminal of the first node (with 10 epoches by default).
+    * Throughput: the throughput of **ROLEX** among all the cluster will be shown in the terminal of the first node (with 10 epoches by default).
     * Latency: execute the following command in **one** node to calculate the latency results of the whole cluster:
         ```shell
         python3 ../us_lat/cluster_latency.py <CN_num> <epoch_start> <epoch_num>

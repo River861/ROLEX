@@ -1,4 +1,4 @@
-"""16 r650 instances for running ROLEX_dev"""
+"""16 r650 instances for running ROLEX"""
 
 #
 # NOTE: This code was machine converted. An actual human would not
