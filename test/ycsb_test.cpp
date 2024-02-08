@@ -57,6 +57,7 @@ int kNodeCount;
 int kCoroCnt = 8;
 bool kIsStr;
 bool kIsScan;
+bool kIsInsert;
 #ifdef USE_CORO
 bool kUseCoro = true;
 #else
@@ -324,6 +325,7 @@ void parse_args(int argc, char *argv[]) {
   kCoroCnt = atoi(argv[3]);
   kIsStr = (std::string(argv[4]) == "email");
   kIsScan = (std::string(argv[5]) == "e");
+  kIsInsert = (std::string(argv[5]) == "la" || std::string(argv[5]) == "e") ;
 
   std::string workload_dir;
   std::ifstream workloads_dir_in("../workloads.conf");
@@ -405,6 +407,41 @@ void load_train_keys() {
       train_keys.emplace_back(k);
       if (++ cnt % LOAD_HEARTBEAT == 0) {
         printf("train-keys: %d load entries loaded.\n", cnt);
+      }
+    }
+  }
+  if (kIsInsert) {
+    std::ifstream trans_in(ycsb_trans_path);
+    if (!trans_in.is_open()) {
+      printf("Error opening trans file\n");
+      assert(false);
+    }
+    if (!kIsStr) {  // int workloads
+      uint64_t int_k;
+      while (trans_in >> op >> int_k) {
+        k = int2key(int_k);
+        if (op == "INSERT") {
+          train_keys.emplace_back(k);
+          if (++ cnt % LOAD_HEARTBEAT == 0) {
+            printf("train-keys: %d load entries loaded.\n", cnt);
+          }
+        }
+      }
+    }
+    else {  // string workloads
+      std::string str_k;
+      std::string line;
+      while (std::getline(trans_in, line)) {
+        if (!line.size()) continue;
+        std::istringstream tmp(line);
+        tmp >> op >> str_k;
+        k = str2key(str_k);
+        if (op == "INSERT") {
+          train_keys.emplace_back(k);
+          if (++ cnt % LOAD_HEARTBEAT == 0) {
+            printf("train-keys: %d load entries loaded.\n", cnt);
+          }
+        }
       }
     }
   }
