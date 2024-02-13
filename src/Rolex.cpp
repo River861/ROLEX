@@ -276,11 +276,13 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     if (!syn_leaf) {  // allocate a new synonym leaf
 #ifdef INFOMATION_EMBEDDED_LOCK
       // read the rest of node
-      LeafNode* tmp_leaf;
-      hopscotch_fetch_node(insert_leaf_addr, r_idx, tmp_leaf, sink, define::leafSpanSize - read_entry_num, false);
-      for (int i = 0; i < define::leafSpanSize - read_entry_num; ++ i) {
-        int idx = (r_idx + i) % define::leafSpanSize;
-        leaf->records[idx] = tmp_leaf->records[idx];
+      if (read_entry_num < define::leafSpanSize) {
+        LeafNode* tmp_leaf;
+        hopscotch_fetch_node(insert_leaf_addr, r_idx, tmp_leaf, sink, define::leafSpanSize - read_entry_num, false);
+        for (int i = 0; i < define::leafSpanSize - read_entry_num; ++ i) {
+          int idx = (r_idx + i) % define::leafSpanSize;
+          leaf->records[idx] = tmp_leaf->records[idx];
+        }
       }
 #endif
       hopscotch_split_and_unlock(leaf, k, v, insert_leaf_addr, lock_buffer, sink);
