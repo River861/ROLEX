@@ -128,7 +128,7 @@ bool rdmaCompareAndSwap(ibv_qp *qp, uint64_t source, uint64_t dest,
                         uint64_t wrID = 0);
 bool rdmaCompareAndSwapMask(ibv_qp *qp, uint64_t source, uint64_t dest,
                             uint64_t compare, uint64_t swap, uint32_t lkey,
-                            uint32_t remoteRKey, uint64_t mask = ~(0ull),
+                            uint32_t remoteRKey, uint64_t compare_mask = ~(0ull), uint64_t swap_mask = ~(0ull),
                             bool signal = true, uint64_t wrID = 0);
 
 //// Utility.cpp
@@ -156,10 +156,4 @@ bool rdmaWriteFaa(ibv_qp *qp, const RdmaOpRegion &write_ror,
 bool rdmaWriteCas(ibv_qp *qp, const RdmaOpRegion &write_ror,
                   const RdmaOpRegion &cas_ror, uint64_t compare, uint64_t swap,
                   bool isSignaled, uint64_t wrID = 0);
-bool rdmaWriteCasMask(ibv_qp *qp, const RdmaOpRegion &write_ror,
-                      const RdmaOpRegion &cas_ror, uint64_t compare, uint64_t swap, uint64_t mask,
-                      bool isSignaled, uint64_t wrID = 0);
-bool rdmaTwoCasMask(ibv_qp *qp, const RdmaOpRegion &cas_ror_1, uint64_t compare_1, uint64_t swap_1, uint64_t mask_1,
-                    const RdmaOpRegion &cas_ror_2, uint64_t compare_2, uint64_t swap_2, uint64_t mask_2,
-                    bool isSignaled, uint64_t wrID = 0);
 #endif

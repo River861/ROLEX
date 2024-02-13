@@ -77,8 +77,7 @@ private:
   void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
 
   // lock
-  static std::pair<uint64_t, uint64_t> get_lock_info(const GlobalAddress &node_addr);
-  static uint64_t get_unlock_info(const GlobalAddress &node_addr);
+  static uint64_t get_lock_info(const GlobalAddress &node_addr);
   void lock_node(const GlobalAddress &node_addr, CoroPull* sink);
   void unlock_node(const GlobalAddress &node_addr, CoroPull* sink, bool async = false);
 

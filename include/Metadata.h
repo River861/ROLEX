@@ -38,8 +38,8 @@ public:
 public:
   InfoLock(uint64_t vacancy_bitmap, uint64_t max_key_idx) : vacancy_bitmap(vacancy_bitmap), max_key_idx(max_key_idx), lock_bit(0) {}
 
-  void update_vacancy(int l, int r, const std::vector<int>& empty_idxes, bool is_leaf=true) {  // [l, r)
-    int span_size = is_leaf ? define::leafSpanSize : define::internalSpanSize;
+  void update_vacancy(int l, int r, const std::vector<int>& empty_idxes) {  // [l, r)
+    int span_size = define::leafSpanSize;
     int l_bit = find_bucket(l, span_size), r_bit = find_bucket(r, span_size);
     assert(l_bit < (int)define::vacancyMapBit && r_bit <= (int)define::vacancyMapBit);
 
@@ -56,8 +56,8 @@ public:
     }
   }
 
-  int get_read_entry_num_from_bitmap(int start_idx, bool is_leaf) {
-    int span_size = is_leaf ? define::leafSpanSize : define::internalSpanSize;
+  int get_read_entry_num_from_bitmap(int start_idx) {
+    int span_size = define::leafSpanSize;
     int s_bit = find_bucket(start_idx, span_size);
     assert(s_bit < (int)define::vacancyMapBit);
 

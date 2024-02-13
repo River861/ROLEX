@@ -167,11 +167,12 @@ constexpr uint32_t vacancyMapBit = 63 - maxKeyIdxBit;
 
 // Rdma Read/Write Size
 #ifdef METADATA_REPLICATION
-constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE((leafMetadataSize + leafEntrySize * hopRange) * entryGroupNum, versionSize);
+constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZE((scatterMetadataSize + leafEntrySize * neighborSize) * entryGroupNum - cachelineSize, versionSize);
 #else
-constexpr uint32_t transLeafSize = ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize, versionSize);
+constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize - cachelineSize, versionSize);
 #endif
-constexpr uint32_t allocationLeafSize = transLeafSize + 8UL;  // remain space for the lock
+constexpr uint32_t allocationLockSize = 16UL;  // round up lock_addr
+constexpr uint32_t allocationLeafSize = transLeafSize + allocationLockSize;  // remain space for the lock
 
 // Rdma Buffer
 constexpr int64_t  kPerThreadRdmaBuf  = rdmaBufferSize * GB / MAX_APP_THREAD;

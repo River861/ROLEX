@@ -75,12 +75,6 @@ public:
   void write_cas_sync(RdmaOpRegion &write_ror, RdmaOpRegion &cas_ror,
                       uint64_t equal, uint64_t val, CoroPull* sink = nullptr);
 
-  void write_cas_mask(RdmaOpRegion &write_ror, RdmaOpRegion &cas_ror,
-                      uint64_t equal, uint64_t val, uint64_t mask, bool signal = true,
-                      CoroPull* sink = nullptr);
-  void write_cas_mask_sync(RdmaOpRegion &write_ror, RdmaOpRegion &cas_ror,
-                           uint64_t equal, uint64_t val, uint64_t mask, CoroPull* sink = nullptr);
-
   void cas(GlobalAddress gaddr, uint64_t equal, uint64_t val,
            uint64_t *rdma_buffer, bool signal = true,
            CoroPull* sink = nullptr);
@@ -102,20 +96,15 @@ public:
   bool cas_write_sync(RdmaOpRegion &cas_ror, RdmaOpRegion &write_ror,
                       uint64_t equal, uint64_t val, CoroPull* sink = nullptr);
 
-  void two_cas_mask(RdmaOpRegion &cas_ror_1, uint64_t equal_1, uint64_t val_1, uint64_t mask_1,
-                    RdmaOpRegion &cas_ror_2, uint64_t equal_2, uint64_t val_2, uint64_t mask_2,
-                    bool signal = true, CoroPull* sink = nullptr);
-  std::pair<bool, bool> two_cas_mask_sync(RdmaOpRegion &cas_ror_1, uint64_t equal_1, uint64_t val_1, uint64_t mask_1,
-                                          RdmaOpRegion &cas_ror_2, uint64_t equal_2, uint64_t val_2, uint64_t mask_2,
-                                          CoroPull* sink = nullptr);
-
   void cas_mask(GlobalAddress gaddr, uint64_t equal, uint64_t val,
-                uint64_t *rdma_buffer, uint64_t mask = ~(0ull),
+                uint64_t *rdma_buffer, uint64_t compare_mask = ~(0ull), uint64_t swap_mask = ~(0ull),
                 bool signal = true, CoroPull* sink = nullptr);
   bool cas_mask_sync(GlobalAddress gaddr, uint64_t equal, uint64_t val,
-                     uint64_t *rdma_buffer, uint64_t mask = ~(0ull), CoroPull* sink = nullptr);
+                     uint64_t *rdma_buffer, uint64_t compare_mask = ~(0ull), uint64_t swap_mask = ~(0ull),  // !!NOTE: the swap_mask must contains compare_mask
+                     CoroPull* sink = nullptr);
   bool cas_mask_sync_without_sink(GlobalAddress gaddr, uint64_t equal, uint64_t val,
-                                  uint64_t *rdma_buffer, uint64_t mask, CoroPull* sink, CoroQueue* waiting_queue);
+                                  uint64_t *rdma_buffer, uint64_t compare_mask, uint64_t swap_mask,  // !!NOTE: the swap_mask must contains compare_mask
+                                  CoroPull* sink, CoroQueue* waiting_queue);
 
   void faa_boundary(GlobalAddress gaddr, uint64_t add_val,
                     uint64_t *rdma_buffer, uint64_t mask = 63,
