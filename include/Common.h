@@ -17,6 +17,13 @@
 
 #include "WRLock.h"
 
+// DEBUG
+// #define HOPSCOTCH_LEAF_NODE
+// #define METADATA_REPLICATION
+// #define SPECULATIVE_POINT_QUERY
+
+// #define INFOMATION_EMBEDDED_LOCK
+
 // Environment Config
 #define MAX_MACHINE 20
 #define MEMORY_NODE_NUM 1
@@ -104,7 +111,7 @@ constexpr uint64_t fakePort            = 8888;
 constexpr uint64_t modelRegionSize     = 1 * GB;
 constexpr uint64_t fakeLeafRegionSize  = 2 * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
-constexpr uint32_t leafSpanSize        = 128;   // 64  NOTE: this affects the bandwidth/IOPS
+constexpr uint32_t leafSpanSize        = 64;    // 64  NOTE: this affects the bandwidth/IOPS
 constexpr uint64_t epsilon             = 32;    // 32  NOTE: this affects the cache_efficiency
 
 // Speculative cache
@@ -149,6 +156,14 @@ constexpr uint32_t leafEntrySize = versionSize + keyLen + inlineValLen;
 constexpr uint32_t hopRange = 8;
 constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
 constexpr uint32_t groupSize     = leafEntrySize * hopRange;
+
+#ifdef INFOMATION_EMBEDDED_LOCK
+constexpr int log2_ceil(unsigned int n, int p = 0) {
+    return (n <= 1) ? p : log2_ceil((n + 1) / 2, p + 1);
+}
+constexpr uint32_t maxKeyIdxBit  = log2_ceil(leafSpanSize);
+constexpr uint32_t vacancyMapBit = 63 - maxKeyIdxBit;
+#endif
 
 // Rdma Read/Write Size
 #ifdef METADATA_REPLICATION

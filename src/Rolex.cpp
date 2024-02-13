@@ -1011,6 +1011,7 @@ next_hop:
     }
   }
   assert(!critical_keys.empty());
+  critical_keys.emplace_back(k);
   std::sort(critical_keys.begin(), critical_keys.end());
   return critical_keys.at(critical_keys.size() / 2);
 }

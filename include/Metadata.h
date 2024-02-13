@@ -28,6 +28,78 @@ inline bool operator==(const PackedGAddr &lhs, const PackedGAddr &rhs) {
 }
 
 
+#ifdef INFOMATION_EMBEDDED_LOCK
+class InfoLock {
+public:
+  uint64_t vacancy_bitmap  : define::vacancyMapBit;
+  uint64_t max_key_idx     : define::maxKeyIdxBit;
+  uint64_t lock_bit        : 1;
+
+public:
+  InfoLock(uint64_t vacancy_bitmap, uint64_t max_key_idx) : vacancy_bitmap(vacancy_bitmap), max_key_idx(max_key_idx), lock_bit(0) {}
+
+  void update_vacancy(int l, int r, const std::vector<int>& empty_idxes, bool is_leaf=true) {  // [l, r)
+    int span_size = is_leaf ? define::leafSpanSize : define::internalSpanSize;
+    int l_bit = find_bucket(l, span_size), r_bit = find_bucket(r, span_size);
+    assert(l_bit < (int)define::vacancyMapBit && r_bit <= (int)define::vacancyMapBit);
+
+    if (l < r) for (int i = l_bit; i < r_bit; ++ i) vacancy_bitmap |= (1ULL << i);
+    else {
+      for (int i = 0; i < r_bit; ++ i) vacancy_bitmap |= (1ULL << i);
+      for (int i = l_bit; i < (int)define::vacancyMapBit; ++ i) vacancy_bitmap |= (1ULL << i);
+    }
+    for (int empty_idx : empty_idxes) {
+      int i = find_bucket(empty_idx, span_size);
+      if (l < r) assert(i >= l_bit && i < r_bit);
+      else assert((i >= 0 && i < r_bit) || (i >= l_bit && i < (int)define::vacancyMapBit));
+      vacancy_bitmap &= ~(1ULL << i);
+    }
+  }
+
+  int get_read_entry_num_from_bitmap(int start_idx, bool is_leaf) {
+    int span_size = is_leaf ? define::leafSpanSize : define::internalSpanSize;
+    int s_bit = find_bucket(start_idx, span_size);
+    assert(s_bit < (int)define::vacancyMapBit);
+
+    for (int i = 0; i < (int)define::vacancyMapBit; ++ i) {
+      int e_bit = (s_bit + i) % define::vacancyMapBit;
+      if (!(vacancy_bitmap & (1ULL << e_bit))) {  // empty
+        auto [_, r_idx] = get_idx_range_in_bucket(e_bit, span_size);
+        int entry_num = (r_idx + define::leafSpanSize - start_idx) % define::leafSpanSize;
+        return entry_num ? entry_num : define::leafSpanSize;
+      }
+    }
+    return define::leafSpanSize;
+  }
+
+  void update_max_key_idx(uint64_t max_key_idx) {
+    this->max_key_idx = max_key_idx;
+  }
+
+  int get_max_key_idx() {
+    return max_key_idx;
+  }
+
+private:
+  int find_bucket(int kv_idx, int span_size) {
+    double avg_per_bucket = static_cast<double>(span_size) / define::vacancyMapBit;
+    int bucket = static_cast<int>(floor(kv_idx / avg_per_bucket));
+    return bucket;
+  }
+
+  std::pair<int, int> get_idx_range_in_bucket(int bucket, int span_size) {
+    double avg_per_bucket = static_cast<double>(span_size) / define::vacancyMapBit;
+    int r_idx = static_cast<int>(ceil((bucket + 1) * avg_per_bucket));
+    int l_idx = static_cast<int>(floor(bucket * avg_per_bucket));
+    if (r_idx > span_size) r_idx = span_size;
+    return std::make_pair(l_idx, r_idx);
+  }
+} __attribute__((packed));
+
+static_assert(sizeof(InfoLock) == sizeof(uint64_t));
+#endif
+
+
 #ifdef ENABLE_VAR_LEN_KV
 class DataPointer {
 public:
