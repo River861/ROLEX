@@ -193,8 +193,8 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       r_idx = (r_idx - 1 + define::neighborSize) / define::neighborSize * define::neighborSize + 1;
       read_entry_num = r_idx - l_idx;
     }
-    return read_entry_num;
 #endif
+    return read_entry_num;
   };
   int read_entry_num = get_read_entry_num(false);
   int read_synonym_entry_num = get_read_entry_num(true);
