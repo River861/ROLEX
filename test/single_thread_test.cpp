@@ -36,7 +36,7 @@ int main() {
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
     // printf("inserting %lu...\n", i);
     Key k = int2key(i);
-    if(k.at[5] == 1 && k.at[6] = 141 && k.at[7] = 147) printf("FUCK: k=%llu\n", key2int(k));
+    if(k[5] == 1 && k[6] = 141 && k[7] = 147) printf("FUCK: k=%llu\n", key2int(k));
     rolex_index->insert(int2key(i), i * 2);
   }
   printf("insert passed.\n");
