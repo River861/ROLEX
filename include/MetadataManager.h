@@ -92,7 +92,7 @@ inline void MetadataManager::encode_segment_metadata(char *input_buffer, char *o
 
 inline std::pair<uint64_t, uint64_t> MetadataManager::get_offset_info(int start_entry_idx, int entry_num) {  // [first_metadata_offset, new_len]
   auto segment_len = sizeof(LeafEntry) * entry_num;
-  uint64_t first_metadata_offset = std::min((define::hopRange - start_entry_idx % define::hopRange) % define::hopRange * sizeof(LeafEntry), segment_len);
+  uint64_t first_metadata_offset = std::min((define::neighborSize - start_entry_idx % define::neighborSize) % define::neighborSize * sizeof(LeafEntry), segment_len);
   auto remain_len = segment_len - first_metadata_offset;
   uint64_t new_len = segment_len + sizeof(ScatteredMetadata) * (remain_len / define::groupSize + (remain_len % define::groupSize ? 1 : 0));
   return std::make_pair(first_metadata_offset, new_len);

@@ -517,7 +517,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   want_speculative_read[dsm->getMyThreadID()] ++;
   auto old_addr = leaf_addr;
 #ifdef HOPSCOTCH_LEAF_NODE
-    auto p = std::make_pair(hash_idx, (hash_idx + define::hopRange) % define::leafSpanSize);
+    auto p = std::make_pair(hash_idx, (hash_idx + define::neighborSize) % define::leafSpanSize);
 #else
     auto p = std::make_pair(0, define::leafSpanSize);
 #endif
@@ -545,7 +545,7 @@ read_another:
   auto& records = leaf->records;
   bool key_is_found = false;
 #ifdef HOPSCOTCH_LEAF_NODE
-  for (int j = 0; j < (int)define::hopRange; ++ j) {
+  for (int j = 0; j < (int)define::neighborSize; ++ j) {
     kv_idx = (hash_idx + j) % define::leafSpanSize;
     auto& e = leaf->records[kv_idx];
     if (e.key == k) {
@@ -679,7 +679,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
     int kv_idx;
     auto leaf_addr = get_leaf_address(i);
 #ifdef HOPSCOTCH_LEAF_NODE
-    auto p = std::make_pair(hash_idx, (hash_idx + define::hopRange) % define::leafSpanSize);
+    auto p = std::make_pair(hash_idx, (hash_idx + define::neighborSize) % define::leafSpanSize);
 #else
     auto p = std::make_pair(0, define::leafSpanSize);
 #endif
@@ -745,11 +745,11 @@ re_read:
 #ifdef HOPSCOTCH_LEAF_NODE
     // check hopping consistency && search key from the segments
     uint16_t hop_bitmap = 0;
-    for (int j = 0; j < (int)define::hopRange; ++ j) {
+    for (int j = 0; j < (int)define::neighborSize; ++ j) {
       int kv_idx = (hash_idx + j) % define::leafSpanSize;
       const auto& e = leaves[i]->records[kv_idx];
       if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
-        hop_bitmap |= 1U << (define::hopRange - j - 1);
+        hop_bitmap |= 1U << (define::neighborSize - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
 #ifdef SPECULATIVE_POINT_QUERY
@@ -879,21 +879,21 @@ bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value
   std::vector<int> hopped_idxes;
 next_hop:
   hopped_idxes.emplace_back(j % define::leafSpanSize);
-  if (j < hash_idx + (int)define::hopRange) {
+  if (j < hash_idx + (int)define::neighborSize) {
     get_entry(j).update(k, v);
     get_entry(hash_idx).set_hop_bit(j - hash_idx);
     segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, sink, is_locked_leaf);
     return true;
   }
-  for (int offset = define::hopRange - 1; offset > 0; -- offset) {
+  for (int offset = define::neighborSize - 1; offset > 0; -- offset) {
     int h = j - offset;
     int h_hash_idx = get_hashed_leaf_entry_index(get_entry(h).key);
     // corner case
     if (h - h_hash_idx < 0) h_hash_idx -= define::leafSpanSize;
-    else if (h - h_hash_idx >= (int)define::hopRange) h_hash_idx += define::leafSpanSize;
+    else if (h - h_hash_idx >= (int)define::neighborSize) h_hash_idx += define::leafSpanSize;
     assert(h_hash_idx <= h);
     // hop h => j is ok
-    if (h_hash_idx + (int)define::hopRange > j) {
+    if (h_hash_idx + (int)define::neighborSize > j) {
       get_entry(j).update(get_entry(h).key, get_entry(h).value);
       get_entry(h_hash_idx).unset_hop_bit(h - h_hash_idx);
       get_entry(h_hash_idx).set_hop_bit(j - h_hash_idx);
@@ -978,18 +978,18 @@ Key RolexIndex::hopscotch_get_split_key(LeafEntry* records, const Key& k) {
     // try hopping assuming that get_entry(empty_idx) is empty
     int j = empty_idx;
 next_hop:
-    if (j < hash_idx + (int)define::hopRange) {
+    if (j < hash_idx + (int)define::neighborSize) {
       critical_keys.emplace_back(get_entry(empty_idx).key);
       continue;
     }
-    for (int offset = define::hopRange - 1; offset > 0; -- offset) {
+    for (int offset = define::neighborSize - 1; offset > 0; -- offset) {
       int h = j - offset;
       int h_hash_idx = get_hashed_leaf_entry_index(get_entry(h).key);
       // corner case
       if (h - h_hash_idx < 0) h_hash_idx -= define::leafSpanSize;
-      else if (h - h_hash_idx >= (int)define::hopRange) h_hash_idx += define::leafSpanSize;
+      else if (h - h_hash_idx >= (int)define::neighborSize) h_hash_idx += define::leafSpanSize;
       // hop h => j is ok
-      if (h_hash_idx + (int)define::hopRange > j) {
+      if (h_hash_idx + (int)define::neighborSize > j) {
         j = h;
         goto next_hop;
       }
@@ -1019,19 +1019,19 @@ void RolexIndex::hopscotch_insert_locally(LeafEntry* records, const Key& k, Valu
   // hop
   assert(j >= 0);
 next_hop:
-  if (j < hash_idx + (int)define::hopRange) {
+  if (j < hash_idx + (int)define::neighborSize) {
     get_entry(j).update(k, v);
     get_entry(hash_idx).set_hop_bit(j - hash_idx);
     return;
   }
-  for (int offset = define::hopRange - 1; offset > 0; -- offset) {
+  for (int offset = define::neighborSize - 1; offset > 0; -- offset) {
     int h = j - offset;
     int h_hash_idx = get_hashed_leaf_entry_index(get_entry(h).key);
     // corner case
     if (h - h_hash_idx < 0) h_hash_idx -= define::leafSpanSize;
-    else if (h - h_hash_idx >= (int)define::hopRange) h_hash_idx += define::leafSpanSize;
+    else if (h - h_hash_idx >= (int)define::neighborSize) h_hash_idx += define::leafSpanSize;
     // hop h => j is ok
-    if (h_hash_idx + (int)define::hopRange > j) {
+    if (h_hash_idx + (int)define::neighborSize > j) {
       get_entry(j).update(get_entry(h).key, get_entry(h).value);
       get_entry(h_hash_idx).unset_hop_bit(h - h_hash_idx);
       get_entry(h_hash_idx).set_hop_bit(j - h_hash_idx);
@@ -1073,8 +1073,8 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
 #endif
   }
 
-  auto segment_size_r = std::min((int)define::hopRange, (int)define::leafSpanSize - hash_idx);
-  auto segment_size_l = define::hopRange <= (int)define::leafSpanSize - hash_idx ? 0 : define::hopRange - ((int)define::leafSpanSize - hash_idx);
+  auto segment_size_r = std::min((int)define::neighborSize, (int)define::leafSpanSize - hash_idx);
+  auto segment_size_l = define::neighborSize <= (int)define::leafSpanSize - hash_idx ? 0 : define::neighborSize - ((int)define::leafSpanSize - hash_idx);
 
 #ifdef METADATA_REPLICATION
   auto [raw_offset_r, raw_len_r, first_offset_r] = LeafVersionManager::get_offset_info(hash_idx, segment_size_r);

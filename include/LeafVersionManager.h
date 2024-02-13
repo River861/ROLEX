@@ -99,12 +99,12 @@ inline void LeafVersionManager::encode_node_versions(char *input_buffer, char *o
 inline std::tuple<uint64_t, uint64_t, uint64_t> LeafVersionManager::get_offset_info(int start_entry_idx, int entry_num) {  // [raw_offset(encoded), raw length(encoded), first_offset(decoded)]
   uint64_t raw_offset, raw_length, first_offset;
   int end_entry_idx = start_entry_idx + entry_num;
-  int decoded_start_offset = (start_entry_idx % define::hopRange ?
-                              STRUCT_OFFSET(ScatteredLeafNode, record_groups[start_entry_idx / define::hopRange].records[start_entry_idx % define::hopRange]) :
-                              STRUCT_OFFSET(ScatteredLeafNode, record_groups[start_entry_idx / define::hopRange].metadata));
-  int decoded_end_offset = (end_entry_idx % define::hopRange ?
-                            STRUCT_OFFSET(ScatteredLeafNode, record_groups[end_entry_idx / define::hopRange].records[end_entry_idx % define::hopRange]) :
-                            STRUCT_OFFSET(ScatteredLeafNode, record_groups[end_entry_idx / define::hopRange].metadata));
+  int decoded_start_offset = (start_entry_idx % define::neighborSize ?
+                              STRUCT_OFFSET(ScatteredLeafNode, record_groups[start_entry_idx / define::neighborSize].records[start_entry_idx % define::neighborSize]) :
+                              STRUCT_OFFSET(ScatteredLeafNode, record_groups[start_entry_idx / define::neighborSize].metadata));
+  int decoded_end_offset = (end_entry_idx % define::neighborSize ?
+                            STRUCT_OFFSET(ScatteredLeafNode, record_groups[end_entry_idx / define::neighborSize].records[end_entry_idx % define::neighborSize]) :
+                            STRUCT_OFFSET(ScatteredLeafNode, record_groups[end_entry_idx / define::neighborSize].metadata));
 
   // calculate raw_offset, first_offset
   auto dist = decoded_start_offset - FIRST_OFFSET;
@@ -151,7 +151,7 @@ inline void LeafVersionManager::encode_segment_versions(char *input_buffer, char
     else {
       int idx = hopped_idx - l_idx - size_l;
       assert(idx < remain_size);
-      auto& obj_version = groups[idx / define::hopRange].records[idx % define::hopRange].h_version;
+      auto& obj_version = groups[idx / define::neighborSize].records[idx % define::neighborSize].h_version;
       ++ obj_version.entry_version;
     }
   }
@@ -216,10 +216,10 @@ inline bool LeafVersionManager::decode_segment_versions(char *input_buffer, char
     if (node_version != entries_l[i].h_version.node_version) return false;
   }
   int remain_size = entry_num - size_l;
-  int group_num = remain_size / define::hopRange + (remain_size % define::hopRange ? 1 : 0);
+  int group_num = remain_size / define::neighborSize + (remain_size % define::neighborSize ? 1 : 0);
   for (int i = 0; i < group_num; ++ i) {
     if (node_version != groups[i].metadata.h_version.node_version) return false;
-    for (int j = 0; j < (int)define::hopRange; ++ j) {
+    for (int j = 0; j < (int)define::neighborSize; ++ j) {
       if (node_version != groups[i].records[j].h_version.node_version) return false;
       if (-- remain_size == 0) return true;
     }

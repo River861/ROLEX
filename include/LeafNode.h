@@ -29,7 +29,7 @@ public:
   PackedVersion h_version;
 #ifdef HOPSCOTCH_LEAF_NODE
   union {
-    uint16_t hop_bitmap : define::hopRange;
+    uint16_t hop_bitmap : define::neighborSize;
     uint16_t hop_padding;
   };
 #endif
@@ -52,12 +52,12 @@ public:
   void update(const Key& k, const Value& v) { key = k, value = v; }
 #ifdef HOPSCOTCH_LEAF_NODE
   void set_hop_bit(int idx) {
-    assert(idx >= 0 && idx < (int)define::hopRange && !(hop_bitmap & (1U << (define::hopRange - idx - 1))));
-    hop_bitmap |= 1U << (define::hopRange - idx - 1);
+    assert(idx >= 0 && idx < (int)define::neighborSize && !(hop_bitmap & (1U << (define::neighborSize - idx - 1))));
+    hop_bitmap |= 1U << (define::neighborSize - idx - 1);
   }
   void unset_hop_bit(int idx) {
-    assert(idx >= 0 && idx < (int)define::hopRange && (hop_bitmap & (1U << (define::hopRange - idx - 1))));
-    hop_bitmap &= ~(1U << (define::hopRange - idx - 1));
+    assert(idx >= 0 && idx < (int)define::neighborSize && (hop_bitmap & (1U << (define::neighborSize - idx - 1))));
+    hop_bitmap &= ~(1U << (define::neighborSize - idx - 1));
   }
 #endif
 
@@ -95,10 +95,10 @@ inline bool operator==(const LeafNode &lhs, const LeafNode &rhs) {
 class LeafEntryGroup {
 public:
   LeafMetadata metadata;
-  LeafEntry records[define::hopRange];
+  LeafEntry records[define::neighborSize];
 } __attribute__((packed));
 
-static_assert(sizeof(LeafEntryGroup) == sizeof(LeafMetadata) + sizeof(LeafEntry) * define::hopRange);
+static_assert(sizeof(LeafEntryGroup) == sizeof(LeafMetadata) + sizeof(LeafEntry) * define::neighborSize);
 
 
 /* Scattered Leaf Node: [lock, leaf metadata, [scattered metadata, KV, KV...] * n] */
