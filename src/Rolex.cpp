@@ -1133,7 +1133,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
     assert(segment_size_l > 0 || !raw_len_l);
     raw_offsets_r.emplace_back(raw_offset_r), raw_offsets_l.emplace_back(raw_offset_l);
     raw_lens_r.emplace_back(raw_len_r), raw_lens_l.emplace_back(raw_len_l);
-    first_offsets_r.emplace_back(first_offset_r), first_offsets_l(first_offset_l);
+    first_offsets_r.emplace_back(first_offset_r), first_offsets_l.emplace_back(first_offset_l);
   }
 
 #ifdef METADATA_REPLICATION
