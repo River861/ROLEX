@@ -153,16 +153,12 @@ constexpr uint32_t leafEntrySize = versionSize + keyLen + inlineValLen;
 #endif
 
 // Hopscotch Hashing
-constexpr uint32_t hopRange = 8;
-constexpr uint32_t entryGroupNum = leafSpanSize / hopRange + (leafSpanSize % hopRange);
-constexpr uint32_t groupSize     = leafEntrySize * hopRange;
+constexpr uint32_t neighborSize = 8;
+constexpr uint32_t entryGroupNum = leafSpanSize / neighborSize + (leafSpanSize % neighborSize);
+constexpr uint32_t groupSize     = leafEntrySize * neighborSize;
 
 #ifdef INFOMATION_EMBEDDED_LOCK
-constexpr int log2_ceil(unsigned int n, int p = 0) {
-    return (n <= 1) ? p : log2_ceil((n + 1) / 2, p + 1);
-}
-constexpr uint32_t maxKeyIdxBit  = log2_ceil(leafSpanSize);
-constexpr uint32_t vacancyMapBit = 63 - maxKeyIdxBit;
+constexpr uint32_t vacancyMapBit = 63 / 2;
 #endif
 
 // Rdma Read/Write Size
