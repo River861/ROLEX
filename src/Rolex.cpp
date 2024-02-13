@@ -105,7 +105,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, uint64_t* lock_buffer
 re_acquire:
   if (!acquire_lock(node_addr)){
     if (cnt ++ > 10000000) {
-      std::cout << "dead lock!" << std::endl;
+      std::cout << "Deadlock " << node_addr << std::endl;
       assert(false);
     }
     if (sink != nullptr) {
@@ -1017,7 +1017,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
       const auto& e = leaf_node->records[i];
       if (e.key == define::kkeyNull) empty_idxes.emplace_back(i);
     }
-    lock->update_vacancy(0, define::leafSpanSize, empty_idxes, true);
+    lock->update_vacancy(0, define::leafSpanSize - 1, empty_idxes, true);
   };
   auto if_lock = ((InfoLock *)lock_buffer);
   // update vacancy bitmap
@@ -1291,7 +1291,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     get_empty_idxes(0, r_idx + 1);
     get_empty_idxes(l_idx, define::leafSpanSize);
   }
-  if_lock->update_vacancy(l_idx, r_idx + 1, empty_idxes, !need_unlock);
+  if_lock->update_vacancy(l_idx, r_idx, empty_idxes, !need_unlock);
 #endif
 
   if (l_idx <= r_idx) {  // update with one WRITE + unlock

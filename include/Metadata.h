@@ -39,29 +39,24 @@ public:
 public:
   InfoLock(uint64_t vacancy_bitmap, uint64_t synonym_vacancy_bitmap) : vacancy_bitmap(vacancy_bitmap), synonym_vacancy_bitmap(synonym_vacancy_bitmap), lock_bit(0) {}
 
-  void update_vacancy(int l, int r, const std::vector<int>& empty_idxes, bool is_synonym=false) {  // [l, r)
+  void update_vacancy(int l, int r, const std::vector<int>& empty_idxes, bool is_synonym=false) {  // [l, r]
     int span_size = define::leafSpanSize;
     int l_bit = find_bucket(l, span_size), r_bit = find_bucket(r, span_size);
-    assert(l_bit < (int)define::vacancyMapBit && r_bit <= (int)define::vacancyMapBit);
 
-    if (l < r) for (int i = l_bit; i < r_bit; ++ i) {
+    auto set_bit = [&](int i){
       if (is_synonym) synonym_vacancy_bitmap |= (1ULL << i);
       else vacancy_bitmap |= (1ULL << i);
-    }
+    };
+
+    if (l_bit <= r_bit) for (int i = l_bit; i <= r_bit; ++ i) set_bit(i);
     else {
-      for (int i = 0; i < r_bit; ++ i) {
-        if (is_synonym) synonym_vacancy_bitmap |= (1ULL << i);
-        else vacancy_bitmap |= (1ULL << i);
-      }
-      for (int i = l_bit; i < (int)define::vacancyMapBit; ++ i) {
-        if (is_synonym) synonym_vacancy_bitmap |= (1ULL << i);
-        else vacancy_bitmap |= (1ULL << i);
-      }
+      for (int i = 0; i <= r_bit; ++ i) set_bit(i);
+      for (int i = l_bit; i < (int)define::vacancyMapBit; ++ i) set_bit(i);
     }
     for (int empty_idx : empty_idxes) {
       int i = find_bucket(empty_idx, span_size);
-      if (l < r) assert(i >= l_bit && i < r_bit);
-      else assert((i >= 0 && i < r_bit) || (i >= l_bit && i < (int)define::vacancyMapBit));
+      if (l_bit <= r_bit) assert(i >= l_bit && i <= r_bit);
+      else assert((i >= 0 && i <= r_bit) || (i >= l_bit && i < (int)define::vacancyMapBit));
       if (is_synonym) synonym_vacancy_bitmap &= ~(1ULL << i);
       else vacancy_bitmap &= ~(1ULL << i);
     }
@@ -70,7 +65,6 @@ public:
   int get_read_entry_num_from_bitmap(int start_idx, bool is_synonym=false) {
     int span_size = define::leafSpanSize;
     int s_bit = find_bucket(start_idx, span_size);
-    assert(s_bit < (int)define::vacancyMapBit);
 
     for (int i = 0; i < (int)define::vacancyMapBit; ++ i) {
       int e_bit = (s_bit + i) % define::vacancyMapBit;
@@ -78,26 +72,27 @@ public:
       if (is_synonym) is_empty = !(synonym_vacancy_bitmap & (1ULL << e_bit));
       else is_empty = !(vacancy_bitmap & (1ULL << e_bit));
       if (is_empty) {  // empty
-        auto [_, r_idx] = get_idx_range_in_bucket(e_bit, span_size);
-        int entry_num = (r_idx + define::leafSpanSize - start_idx) % define::leafSpanSize;
-        return entry_num ? entry_num : define::leafSpanSize;
+        auto [l_idx, r_idx] = get_idx_range_in_bucket(e_bit, span_size);  // [l_idx, r_idx]
+        if (start_idx > l_idx) continue;  // !!Important
+        int entry_num = (r_idx + span_size - start_idx + 1) % span_size;
+        return entry_num ? entry_num : span_size;
       }
     }
-    return define::leafSpanSize;
+    return span_size;
   }
 
 private:
-  int find_bucket(int kv_idx, int span_size) {
+  int find_bucket(int kv_idx, int span_size) {  // 0~span_size => 0~bitmap_size
     double avg_per_bucket = static_cast<double>(span_size) / define::vacancyMapBit;
     int bucket = static_cast<int>(floor(kv_idx / avg_per_bucket));
-    return bucket;
+    return bucket % define::vacancyMapBit;
   }
 
-  std::pair<int, int> get_idx_range_in_bucket(int bucket, int span_size) {
+  std::pair<int, int> get_idx_range_in_bucket(int bucket, int span_size) {  // 0~bitmap_size => 0~span_size
     double avg_per_bucket = static_cast<double>(span_size) / define::vacancyMapBit;
-    int r_idx = static_cast<int>(ceil((bucket + 1) * avg_per_bucket));
-    int l_idx = static_cast<int>(floor(bucket * avg_per_bucket));
-    if (r_idx > span_size) r_idx = span_size;
+    int l_idx = bucket ? static_cast<int>(floor(bucket * avg_per_bucket)) + 1 : 0;
+    int r_idx = static_cast<int>(floor((bucket + 1) * avg_per_bucket));
+    if (r_idx >= span_size) r_idx = span_size - 1;
     return std::make_pair(l_idx, r_idx);
   }
 } __attribute__((packed));
