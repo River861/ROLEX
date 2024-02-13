@@ -9,6 +9,7 @@ class RdmaBuffer {
 private:
   // async, buffer safty
   static const int kCasBufferCnt    = 32;
+  static const int kLockBufferCnt   = 64;
   static const int kLeafBufferCnt   = 512;
   static const int kSegmentBufferCnt= 256;
   static const int kHeaderBufferCnt = 32;
@@ -18,6 +19,7 @@ private:
   char *buffer;
 
   uint64_t *cas_buffer;
+  uint64_t *lock_buffer;
   char *internal_buffer;
   char *leaf_buffer;
   char *segment_buffer;
@@ -29,6 +31,7 @@ private:
   uint64_t *zero_8_byte;
 
   int cas_buffer_cur;
+  int lock_buffer_cur;
   int internal_buffer_cur;
   int leaf_buffer_cur;
   int segment_buffer_cur;
@@ -43,7 +46,8 @@ public:
     // setup buffer partition
     this->buffer    = buffer;
     cas_buffer      = (uint64_t *)buffer;
-    leaf_buffer     = (char     *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
+    lock_buffer     = (uint64_t *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
+    leaf_buffer     = (char     *)((char *)lock_buffer     + sizeof(uint64_t) * kLockBufferCnt);
     segment_buffer  = (char     *)((char *)leaf_buffer     + define::allocationLeafSize     * kLeafBufferCnt);
     metadata_buffer = (char     *)((char *)segment_buffer  + define::allocationLeafSize     * kSegmentBufferCnt);
     entry_buffer    = (char     *)((char *)metadata_buffer + define::bufferMetadataSize     * kHeaderBufferCnt);
@@ -54,6 +58,7 @@ public:
     assert(range_buffer - buffer < define::kPerCoroRdmaBuf);
     // init counters
     cas_buffer_cur      = 0;
+    lock_buffer_cur     = 0;
     internal_buffer_cur = 0;
     leaf_buffer_cur     = 0;
     segment_buffer_cur  = 0;
@@ -64,6 +69,11 @@ public:
   uint64_t *get_cas_buffer() {
     cas_buffer_cur = (cas_buffer_cur + 1) % kCasBufferCnt;
     return cas_buffer + cas_buffer_cur;
+  }
+
+  uint64_t *get_lock_buffer() {
+    lock_buffer_cur = (lock_buffer_cur + 1) % kLockBufferCnt;
+    return lock_buffer + lock_buffer_cur;
   }
 
   char *get_leaf_buffer() {

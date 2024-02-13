@@ -175,7 +175,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
   LeafNode* leaf = nullptr, *syn_leaf = nullptr;
-  lock_node(insert_leaf_addr, sink);
+  // lock node
+  auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
+  lock_node(insert_leaf_addr, lock_buffer, sink);
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
     read_leaf_cnt ++;
@@ -218,31 +220,31 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 
 #ifdef HOPSCOTCH_LEAF_NODE
   for (const auto& e : leaf->records) if (e.key == k) {  // existing key
-    unlock_node(insert_leaf_addr, sink);
+    unlock_node(insert_leaf_addr, lock_buffer, sink);
     goto insert_finish;
   }
   // use a leaf copy to hop since it may fail
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
-  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, sink)) {  // return false(and remain locked) if need insert into synonym leaf
+  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, lock_buffer, sink)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
-      hopscotch_split_and_unlock(leaf, k, v, insert_leaf_addr, sink);
+      hopscotch_split_and_unlock(leaf, k, v, insert_leaf_addr, lock_buffer, sink);
     }
     else {  // insert into old synonym leaf
-      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, sink, false)) {
+      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, lock_buffer, sink, false)) {
         printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
         // assert(false);
       }
-      unlock_node(insert_leaf_addr, sink);
+      unlock_node(insert_leaf_addr, lock_buffer, sink);
     }
   }
 #else
   for (i = 0; i < (int)define::leafSpanSize; ++ i) {
     const auto& e = records[i];
     if (e.key == k) {
-      unlock_node(insert_leaf_addr, sink);
+      unlock_node(insert_leaf_addr, lock_buffer, sink);
       goto insert_finish;
     }
     if (e.key == define::kkeyNull || e.key > k) break;
@@ -251,7 +253,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     write_syn_leaf = true;
     auto syn_addr = insert_into_syn_leaf_locally(k, v, syn_leaf, insert_leaf_addr.nodeID, sink);
     if (syn_addr == GlobalAddress::Max()) {  // existing key
-      unlock_node(insert_leaf_addr, sink);
+      unlock_node(insert_leaf_addr, lock_buffer, sink);
       goto insert_finish;
     }
     if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
@@ -269,7 +271,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       const auto& last_e = records[j - 1];
       auto syn_addr = insert_into_syn_leaf_locally(last_e.key, last_e.value, syn_leaf, insert_leaf_addr.nodeID, sink);
       if (syn_addr == GlobalAddress::Max()) {  // existing key
-        unlock_node(insert_leaf_addr, sink);
+        unlock_node(insert_leaf_addr, lock_buffer, sink);
         goto insert_finish;
       }
       if (syn_addr != GlobalAddress::Null()) {  // new syn leaf
@@ -288,7 +290,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
-  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, sink);
+  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
@@ -508,7 +510,8 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   UNUSED(old_v);
   assert(ret);
   // 2. Fine-grained locking and re-read
-  lock_node(lock_leaf_addr, sink);
+  auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
+  lock_node(lock_leaf_addr, lock_buffer, sink);
   LeafNode* leaf;
 #ifdef SPECULATIVE_POINT_QUERY
   want_speculative_read[dsm->getMyThreadID()] ++;
@@ -595,9 +598,9 @@ update_entry:
 #endif
 
 #ifdef HOPSCOTCH_LEAF_NODE
-  entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, sink);
+  entry_write_and_unlock(leaf, kv_idx, leaf_addr, lock_leaf_addr, lock_buffer, sink);
 #else
-  write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, sink);
+  write_node_and_unlock(leaf_addr, leaf, lock_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
