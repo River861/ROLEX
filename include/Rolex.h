@@ -73,26 +73,26 @@ private:
   GlobalAddress insert_into_syn_leaf_locally(const Key &k, Value v, LeafNode*& syn_leaf, int nodeID, CoroPull* sink);  // return syn_addr if allocating a new synonym leaf
   void fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, CoroPull* sink, bool update_local_slt=true);
   void fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt=true);
-  void write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
-  void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
+  void write_node_and_unlock(const GlobalAddress& leaf_addr, LeafNode* leaf, const GlobalAddress& locked_leaf_addr, uint64_t* lock_buffer, CoroPull* sink);
+  void write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, uint64_t* lock_buffer, CoroPull* sink);
 
   // lock
-  static uint64_t get_lock_info(const GlobalAddress &node_addr);
-  void lock_node(const GlobalAddress &node_addr, CoroPull* sink);
-  void unlock_node(const GlobalAddress &node_addr, CoroPull* sink, bool async = false);
+  static uint64_t get_lock_info();
+  void lock_node(const GlobalAddress &node_addr, uint64_t* lock_buffer, CoroPull* sink);
+  void unlock_node(const GlobalAddress &node_addr, uint64_t* lock_buffer, CoroPull* sink, bool async = false);
 
   // hopscotch
 #ifdef HOPSCOTCH_LEAF_NODE
-  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink, bool is_locked_leaf=true);
-  void hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink);
+  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, bool is_locked_leaf=true);
+  void hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink);
   Key hopscotch_get_split_key(LeafEntry* records, const Key& k);
   void hopscotch_insert_locally(LeafEntry* records, const Key& k, Value v);
 
   void hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, CoroPull* sink, bool update_local_slt=true);
   void hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, CoroPull* sink, bool update_local_slt=true);
 
-  void segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, CoroPull* sink, bool need_unlock=true);
-  void entry_write_and_unlock(LeafNode* leaf, const int idx, const GlobalAddress& node_addr, const GlobalAddress& locked_leaf_addr, CoroPull* sink);
+  void segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, bool need_unlock=true);
+  void entry_write_and_unlock(LeafNode* leaf, const int idx, const GlobalAddress& node_addr, const GlobalAddress& locked_leaf_addr, uint64_t* lock_buffer, CoroPull* sink);
 #endif
 
   // speculative read
