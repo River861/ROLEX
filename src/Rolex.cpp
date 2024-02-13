@@ -183,7 +183,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   auto get_read_entry_num = [=](bool is_synonym){
     auto if_lock = (InfoLock *)lock_buffer;
     int l_idx = hash_idx;
-    int read_entry_num = if_lock->get_read_entry_num_from_bitmap(l_idx, true, is_synonym);
+    int read_entry_num = if_lock->get_read_entry_num_from_bitmap(l_idx, is_synonym);
     int r_idx = l_idx + read_entry_num;
 #ifdef METADATA_REPLICATION
     // ensure to read one stattered metadata
@@ -901,7 +901,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
 
 
 #ifdef HOPSCOTCH_LEAF_NODE
-bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, CoroPull* sink, bool is_locked_leaf) {
+bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, bool is_locked_leaf) {
   auto& records = leaf->records;
   auto get_entry = [=, &records](int logical_idx) -> LeafEntry& {
     return records[(logical_idx + define::leafSpanSize) % define::leafSpanSize];
@@ -925,7 +925,7 @@ next_hop:
   if (j < hash_idx + (int)define::neighborSize) {
     get_entry(j).update(k, v);
     get_entry(hash_idx).set_hop_bit(j - hash_idx);
-    segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, sink, is_locked_leaf);
+    segment_write_and_unlock(leaf, hash_idx, empty_idx % define::leafSpanSize, hopped_idxes, node_addr, lock_buffer, sink, is_locked_leaf);
     return true;
   }
   for (int offset = define::neighborSize - 1; offset > 0; -- offset) {
@@ -1003,6 +1003,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
 #else
   VerMng::encode_node_versions((char *)leaf, encoded_leaf_buffer);
 #endif
+  auto lock_offset = get_lock_info();
   memcpy(encoded_leaf_buffer + lock_offset, lock_buffer, sizeof(uint64_t));  // unlock
   dsm->write_sync_without_sink(encoded_leaf_buffer, node_addr, define::transLeafSize + define::allocationLockSize, sink, &busy_waiting_queue);
 }
@@ -1100,9 +1101,9 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
   std::vector<RdmaOpRegion> rs;
   // metadata calculation
   std::vector<int> segment_sizes_r, segment_sizes_l;
-  std::vector<int> raw_offsets_r, raw_offsets_l;
-  std::vector<int> raw_lens_r, raw_lens_l;
-  std::vector<int> first_offsets_r, first_offsets_l;
+  std::vector<uint64_t> raw_offsets_r, raw_offsets_l;
+  std::vector<uint64_t> raw_lens_r, raw_lens_l;
+  std::vector<uint64_t> first_offsets_r, first_offsets_l;
 #ifdef METADATA_REPLICATION
   std::vector<char*> intermediate_buffers_l;
   std::vector<char*> intermediate_buffers_r;
@@ -1243,6 +1244,7 @@ re_fetch:
 void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, const std::vector<int>& hopped_idxes, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, bool need_unlock) {
   auto& records = leaf->records;
   const auto& metadata = leaf->metadata;
+  auto lock_offset = get_lock_info();
   if (l_idx <= r_idx) {  // update with one WRITE + unlock
     auto encoded_segment_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
 #ifdef METADATA_REPLICATION
@@ -1258,7 +1260,6 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     VerMng::encode_segment_versions((char *)&records[l_idx], encoded_segment_buffer, first_offset, hopped_idxes, l_idx, r_idx);
 #endif
     // write segment and unlock
-    auto lock_offset = get_lock_info();
     if (!need_unlock) {
       dsm->write_sync_without_sink(encoded_segment_buffer, node_addr + raw_offset, raw_len, sink, &busy_waiting_queue);
     }
@@ -1273,7 +1274,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
       rs[0].size = raw_len;
       rs[0].is_on_chip = false;
 
-      rs[1].source = (uint64_t)lock_buffer
+      rs[1].source = (uint64_t)lock_buffer;
       rs[1].dest = (node_addr + lock_offset).to_uint64();
       rs[1].size = sizeof(uint64_t);
       rs[1].is_on_chip = false;
@@ -1316,7 +1317,7 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     }
     else {
       memcpy(encoded_segment_buffer_2 + raw_len_2 + lock_offset - define::transLeafSize, lock_buffer, sizeof(uint64_t));  // unlock
-      rs[1].size = raw_len_2 + define::allocationLockSize
+      rs[1].size = raw_len_2 + define::allocationLockSize;
     }
     rs[1].source = (uint64_t)encoded_segment_buffer_2;
     rs[1].dest = (node_addr + raw_offset_2).to_uint64();
