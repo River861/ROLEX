@@ -179,25 +179,26 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
   lock_node(insert_leaf_addr, lock_buffer, sink);
 
+  int read_entry_num = define::leafSpanSize, read_synonym_entry_num = define::leafSpanSize;
 #if (defined HOPSCOTCH_LEAF_NODE && defined INFOMATION_EMBEDDED_LOCK)
   auto get_read_entry_num = [=](bool is_synonym){
     auto if_lock = (InfoLock *)lock_buffer;
     int l_idx = hash_idx;
-    int read_entry_num = if_lock->get_read_entry_num_from_bitmap(l_idx, is_synonym);
-    int r_idx = l_idx + read_entry_num;
+    int entry_num = if_lock->get_read_entry_num_from_bitmap(l_idx, is_synonym);
+    int r_idx = l_idx + entry_num;
 #ifdef METADATA_REPLICATION
     // ensure to read one stattered metadata
-    if (read_entry_num < (int)define::neighborSize
+    if (entry_num < (int)define::neighborSize
         && (l_idx % define::neighborSize)
         && (l_idx / define::neighborSize == (r_idx - 1) / define::neighborSize)) {
       r_idx = (r_idx - 1 + define::neighborSize) / define::neighborSize * define::neighborSize + 1;
-      read_entry_num = r_idx - l_idx;
+      entry_num = r_idx - l_idx;
     }
 #endif
-    return read_entry_num;
+    return entry_num;
   };
-  int read_entry_num = get_read_entry_num(false);
-  int read_synonym_entry_num = get_read_entry_num(true);
+  read_entry_num = get_read_entry_num(false);
+  read_synonym_entry_num = get_read_entry_num(true);
   int r_idx = (hash_idx + read_entry_num) % define::leafSpanSize;
   int r_synonym_idx = (hash_idx + read_synonym_entry_num) % define::leafSpanSize;
 #endif
@@ -270,7 +271,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // use a leaf copy to hop since it may fail
   auto leaf_copy_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
   memcpy(leaf_copy_buffer, (char*)leaf, define::allocationLeafSize);
-  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, lock_buffer, sink)) {  // return false(and remain locked) if need insert into synonym leaf
+  if (!hopscotch_insert_and_unlock((LeafNode*)leaf_copy_buffer, k, v, insert_leaf_addr, lock_buffer, sink, read_entry_num)) {  // return false(and remain locked) if need insert into synonym leaf
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
@@ -288,7 +289,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       hopscotch_split_and_unlock(leaf, k, v, insert_leaf_addr, lock_buffer, sink);
     }
     else {  // insert into old synonym leaf
-      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, lock_buffer, sink, false)) {
+      if (!hopscotch_insert_and_unlock(syn_leaf, k, v, syn_leaf_addr, lock_buffer, sink, read_synonym_entry_num, false)) {
         printf("synonmy leaf is hop-full!!\n");  // ASSERT: synonmy leaf is hop-full!!
         // assert(false);
       }
@@ -913,7 +914,7 @@ void RolexIndex::range_query(const Key &from, const Key &to, std::map<Key, Value
 
 
 #ifdef HOPSCOTCH_LEAF_NODE
-bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, bool is_locked_leaf) {
+bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, int entry_num, bool is_locked_leaf) {
   auto& records = leaf->records;
   auto get_entry = [=, &records](int logical_idx) -> LeafEntry& {
     return records[(logical_idx + define::leafSpanSize) % define::leafSpanSize];
@@ -922,7 +923,7 @@ bool RolexIndex::hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value
   int hash_idx = get_hashed_leaf_entry_index(k);
   // find an empty slot
   int empty_idx = -1;
-  for (int i = hash_idx; i < hash_idx + (int)define::leafSpanSize; ++ i) {
+  for (int i = hash_idx; i < hash_idx + entry_num; ++ i) {
     if (get_entry(i).key == define::kkeyNull) {
       empty_idx = i;
       break;

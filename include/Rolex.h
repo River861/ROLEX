@@ -83,7 +83,7 @@ private:
 
   // hopscotch
 #ifdef HOPSCOTCH_LEAF_NODE
-  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, bool is_locked_leaf=true);
+  bool hopscotch_insert_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink, int entry_num=define::leafSpanSize, bool is_locked_leaf=true);
   void hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value v, const GlobalAddress& node_addr, uint64_t* lock_buffer, CoroPull* sink);
   Key hopscotch_get_split_key(LeafEntry* records, const Key& k);
   void hopscotch_insert_locally(LeafEntry* records, const Key& k, Value v);
