@@ -1011,18 +1011,18 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
 
 #ifdef INFOMATION_EMBEDDED_LOCK
   // update in-lock metadata
-  auto update_vacancy_bitmap = [=](LeafNode* leaf_node, InfoLock *lock){
+  auto update_vacancy_bitmap = [=](LeafNode* leaf_node, InfoLock *lock, bool is_synonym){
     std::vector<int> empty_idxes;
     for (int i = 0; i < (int)define::leafSpanSize; ++ i) {
       const auto& e = leaf_node->records[i];
       if (e.key == define::kkeyNull) empty_idxes.emplace_back(i);
     }
-    lock->update_vacancy(0, define::leafSpanSize - 1, empty_idxes, true);
+    lock->update_vacancy(0, define::leafSpanSize - 1, empty_idxes, is_synonym);
   };
   auto if_lock = ((InfoLock *)lock_buffer);
   // update vacancy bitmap
-  update_vacancy_bitmap(leaf, if_lock);
-  update_vacancy_bitmap(synonym_leaf, if_lock);
+  update_vacancy_bitmap(leaf, if_lock, false);
+  update_vacancy_bitmap(synonym_leaf, if_lock, true);
 #endif
 
   // wirte split node and unlock
