@@ -163,7 +163,7 @@ constexpr uint32_t vacancyMapBit = 63 / 2;
 
 // Rdma Read/Write Size
 #ifdef METADATA_REPLICATION
-constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZE((scatterMetadataSize + leafEntrySize * neighborSize) * entryGroupNum - cachelineSize, versionSize);
+constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZE((leafMetadataSize + leafEntrySize * neighborSize) * entryGroupNum - cachelineSize, versionSize);
 #else
 constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize - cachelineSize, versionSize);
 #endif
