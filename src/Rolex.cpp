@@ -279,7 +279,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       // read the rest of node
       if (read_entry_num < define::leafSpanSize) {
         LeafNode* tmp_leaf;
-        hopscotch_fetch_node(insert_leaf_addr, r_idx, tmp_leaf, sink, define::leafSpanSize - read_entry_num, false);
+        hopscotch_fetch_node(insert_leaf_addr, r_idx, tmp_leaf, sink, define::leafSpanSize - read_entry_num, false, false);
         for (int i = 0; i < define::leafSpanSize - read_entry_num; ++ i) {
           int idx = (r_idx + i) % define::leafSpanSize;
           leaf->records[idx] = tmp_leaf->records[idx];
@@ -1118,15 +1118,15 @@ next_hop:
 }
 
 
-void RolexIndex::hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, CoroPull* sink, int entry_num, bool update_local_slt) {
+void RolexIndex::hopscotch_fetch_node(const GlobalAddress& leaf_addr, int hash_idx, LeafNode*& leaf, CoroPull* sink, int entry_num, bool update_local_slt, bool need_metadata) {
   std::vector<LeafNode*> leaves;
-  hopscotch_fetch_nodes(std::vector<GlobalAddress>{leaf_addr}, hash_idx, leaves, sink, std::vector<int>{entry_num}, update_local_slt);
+  hopscotch_fetch_nodes(std::vector<GlobalAddress>{leaf_addr}, hash_idx, leaves, sink, std::vector<int>{entry_num}, update_local_slt, need_metadata);
   leaf = leaves.front();
   return;
 }
 
 
-void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, CoroPull* sink, std::vector<int> entry_nums, bool update_local_slt) {
+void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, int hash_idx, std::vector<LeafNode*>& leaves, CoroPull* sink, std::vector<int> entry_nums, bool update_local_slt, bool need_metadata) {
   try_read_leaf[dsm->getMyThreadID()] ++;
   std::vector<char*> raw_buffers;
   std::vector<RdmaOpRegion> rs;
@@ -1206,7 +1206,7 @@ re_fetch:
       }
       bool has_metadata_l = MetadataManager::decode_segment_metadata(intermediate_buffers_l[i], (char*)&(leaves[i]->records[0]), first_metadata_offset_l, segment_sizes_l[i], metadata_l);
       bool has_metadata_r = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaves[i]->records[hash_idx]), first_metadata_offset_r, segment_sizes_r[i], metadata_r);
-      assert(has_metadata_l || has_metadata_l);
+      assert(!need_metadata || has_metadata_l || has_metadata_l);
       if (has_metadata_l && has_metadata_r) assert(metadata_l == metadata_r);
       leaves[i]->metadata = (has_metadata_l ? metadata_l : metadata_r);
     }
@@ -1220,7 +1220,7 @@ re_fetch:
         goto re_fetch;
       }
       auto has_metadata = MetadataManager::decode_segment_metadata(intermediate_buffers_r[i], (char*)&(leaves[i]->records[hash_idx]), first_metadata_offset_r, segment_sizes_r[i], leaves[i]->metadata);
-      assert(has_metadata);
+      assert(!need_metadata || has_metadata);
     }
   }
 #else
