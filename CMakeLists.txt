@@ -92,6 +92,12 @@ else()
     remove_definitions(-DSPECULATIVE_POINT_QUERY)
 endif()
 
+if(ENABLE_VAR_LEN_KV)
+    add_definitions(-DENABLE_VAR_LEN_KV)
+else()
+    remove_definitions(-DENABLE_VAR_LEN_KV)
+endif()
+
 #Include files
 set(INCLUDE_BASE ${PROJECT_SOURCE_DIR}/include)
 include_directories(${INCLUDE_BASE})
