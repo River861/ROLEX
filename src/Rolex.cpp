@@ -799,12 +799,12 @@ re_read:
   for (int i = 0; i < (int)leaves.size(); ++ i) {
 #ifdef HOPSCOTCH_LEAF_NODE
     // check hopping consistency && search key from the segments
-    uint16_t hop_bitmap = 0;
+    uint16_t hop_bitmap = 0ULL;
     for (int j = 0; j < (int)define::neighborSize; ++ j) {
       int kv_idx = (hash_idx + j) % define::leafSpanSize;
       const auto& e = leaves[i]->records[kv_idx];
       if (e.key != define::kkeyNull && (int)get_hashed_leaf_entry_index(e.key) == hash_idx) {
-        hop_bitmap |= 1U << (define::neighborSize - j - 1);
+        hop_bitmap |= 1ULL << (define::neighborSize - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
 #ifdef SPECULATIVE_POINT_QUERY

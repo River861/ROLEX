@@ -52,12 +52,12 @@ public:
   void update(const Key& k, const Value& v) { key = k, value = v; }
 #ifdef HOPSCOTCH_LEAF_NODE
   void set_hop_bit(int idx) {
-    assert(idx >= 0 && idx < (int)define::neighborSize && !(hop_bitmap & (1U << (define::neighborSize - idx - 1))));
-    hop_bitmap |= 1U << (define::neighborSize - idx - 1);
+    assert(idx >= 0 && idx < (int)define::neighborSize && !(hop_bitmap & (1ULL << (define::neighborSize - idx - 1))));
+    hop_bitmap |= 1ULL << (define::neighborSize - idx - 1);
   }
   void unset_hop_bit(int idx) {
-    assert(idx >= 0 && idx < (int)define::neighborSize && (hop_bitmap & (1U << (define::neighborSize - idx - 1))));
-    hop_bitmap &= ~(1U << (define::neighborSize - idx - 1));
+    assert(idx >= 0 && idx < (int)define::neighborSize && (hop_bitmap & (1ULL << (define::neighborSize - idx - 1))));
+    hop_bitmap &= ~(1ULL << (define::neighborSize - idx - 1));
   }
 #endif
 
