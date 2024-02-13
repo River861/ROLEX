@@ -159,18 +159,18 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   }
 
   {
-  // 1. Fetching
-  auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
-  std::vector<GlobalAddress> leaf_addrs;
-  std::vector<LeafNode*> _;
-  for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
-  read_leaf_cnt += leaf_addrs.size();
-#ifdef HOPSCOTCH_LEAF_NODE
-  int hash_idx = get_hashed_leaf_entry_index(k);
-  hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink, std::vector<int>(leaf_addrs.size(), define::leafSpanSize));
-#else
-  fetch_nodes(leaf_addrs, _, sink);
-#endif
+  // 1. Fetching (No Needed)
+//   auto [l, r, insert_idx] = rolex_cache->search_from_cache_for_insert(k);
+//   std::vector<GlobalAddress> leaf_addrs;
+//   std::vector<LeafNode*> _;
+//   for (int i = l; i <= r; ++ i) leaf_addrs.emplace_back(get_leaf_address(i));  // without reading synonym leaves
+//   read_leaf_cnt += leaf_addrs.size();
+// #ifdef HOPSCOTCH_LEAF_NODE
+//   int hash_idx = get_hashed_leaf_entry_index(k);
+//   hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink, std::vector<int>(leaf_addrs.size(), define::leafSpanSize));
+// #else
+//   fetch_nodes(leaf_addrs, _, sink);
+// #endif
 
   // 2. Fine-grained locking and re-read
   GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
