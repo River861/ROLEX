@@ -23,11 +23,6 @@ int main() {
   dsm->registerThread();
 
   if (dsm->getMyNodeID() != 0) {
-    Key k;
-    k.at[5] = 1;
-    k.at[6] = 141;
-    k.at[7] = 147;
-    printf("FUCK: k=%llu\n", key2int(k));
     dsm->barrier("fin");
     return 0;
   }
@@ -40,6 +35,8 @@ int main() {
   // test insert
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
     // printf("inserting %lu...\n", i);
+    Key k = int2key(i);
+    if(k.at[5] == 1 && k.at[6] = 141 && k.at[7] = 147) printf("FUCK: k=%llu\n", key2int(k));
     rolex_index->insert(int2key(i), i * 2);
   }
   printf("insert passed.\n");
