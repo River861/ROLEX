@@ -22,7 +22,7 @@
 // #define METADATA_REPLICATION
 // #define SPECULATIVE_POINT_QUERY
 
-// #define INFOMATION_EMBEDDED_LOCK
+#define INFOMATION_EMBEDDED_LOCK
 
 // Environment Config
 #define MAX_MACHINE 20
