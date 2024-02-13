@@ -40,33 +40,44 @@ public:
   InfoLock(uint64_t vacancy_bitmap, uint64_t synonym_vacancy_bitmap) : vacancy_bitmap(vacancy_bitmap), synonym_vacancy_bitmap(synonym_vacancy_bitmap), lock_bit(0) {}
 
   void update_vacancy(int l, int r, const std::vector<int>& empty_idxes, bool is_synonym=false) {  // [l, r)
-    auto& v_bitmap = is_synonym ? synonym_vacancy_bitmap : vacancy_bitmap;
     int span_size = define::leafSpanSize;
     int l_bit = find_bucket(l, span_size), r_bit = find_bucket(r, span_size);
     assert(l_bit < (int)define::vacancyMapBit && r_bit <= (int)define::vacancyMapBit);
 
-    if (l < r) for (int i = l_bit; i < r_bit; ++ i) v_bitmap |= (1ULL << i);
+    if (l < r) for (int i = l_bit; i < r_bit; ++ i) {
+      if (is_synonym) synonym_vacancy_bitmap |= (1ULL << i);
+      else vacancy_bitmap |= (1ULL << i);
+    }
     else {
-      for (int i = 0; i < r_bit; ++ i) v_bitmap |= (1ULL << i);
-      for (int i = l_bit; i < (int)define::vacancyMapBit; ++ i) v_bitmap |= (1ULL << i);
+      for (int i = 0; i < r_bit; ++ i) {
+        if (is_synonym) synonym_vacancy_bitmap |= (1ULL << i);
+        else vacancy_bitmap |= (1ULL << i);
+      }
+      for (int i = l_bit; i < (int)define::vacancyMapBit; ++ i) {
+        if (is_synonym) synonym_vacancy_bitmap |= (1ULL << i);
+        else vacancy_bitmap |= (1ULL << i);
+      }
     }
     for (int empty_idx : empty_idxes) {
       int i = find_bucket(empty_idx, span_size);
       if (l < r) assert(i >= l_bit && i < r_bit);
       else assert((i >= 0 && i < r_bit) || (i >= l_bit && i < (int)define::vacancyMapBit));
-      v_bitmap &= ~(1ULL << i);
+      if (is_synonym) synonym_vacancy_bitmap &= ~(1ULL << i);
+      else vacancy_bitmap &= ~(1ULL << i);
     }
   }
 
   int get_read_entry_num_from_bitmap(int start_idx, bool is_synonym=false) {
-    const auto& v_bitmap = is_synonym ? synonym_vacancy_bitmap : vacancy_bitmap;
     int span_size = define::leafSpanSize;
     int s_bit = find_bucket(start_idx, span_size);
     assert(s_bit < (int)define::vacancyMapBit);
 
     for (int i = 0; i < (int)define::vacancyMapBit; ++ i) {
       int e_bit = (s_bit + i) % define::vacancyMapBit;
-      if (!(v_bitmap & (1ULL << e_bit))) {  // empty
+      bool is_empty;
+      if (is_synonym) is_empty = !(synonym_vacancy_bitmap & (1ULL << e_bit));
+      else is_empty = !(vacancy_bitmap & (1ULL << e_bit));
+      if (is_empty) {  // empty
         auto [_, r_idx] = get_idx_range_in_bucket(e_bit, span_size);
         int entry_num = (r_idx + define::leafSpanSize - start_idx) % define::leafSpanSize;
         return entry_num ? entry_num : define::leafSpanSize;
