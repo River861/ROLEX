@@ -108,7 +108,7 @@ constexpr uint64_t rdmaBufferSize     = 4;         // GB  [CONFIG] 4
 
 // Rolex
 constexpr uint64_t fakePort            = 8888;
-constexpr uint64_t modelRegionSize     = 4 * GB;
+constexpr uint64_t modelRegionSize     = 8 * GB;
 constexpr uint64_t fakeLeafRegionSize  = 2 * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
 constexpr uint32_t leafSpanSize        = 4;    // 16  NOTE: this affects the bandwidth/IOPS
