@@ -49,7 +49,7 @@ private:
   DSM *dsm;
 
   // HashTable
-  static const int BUCKET_SIZE = std::max(HASH_BUCKET_SIZE, (int)ROUND_UP(define::kHotIdxCacheSize * define::MB / sizeof(IdxCacheEntry*) / HASH_TABLE_SIZE, 3));
+  static const int BUCKET_SIZE = std::max(HASH_BUCKET_SIZE, (int)ROUND_UP(define::kHotspotBufSize * define::MB / sizeof(IdxCacheEntry*) / HASH_TABLE_SIZE, 3));
   IdxCacheEntry* hash_table[HASH_TABLE_SIZE][BUCKET_SIZE];
 
   // GC
@@ -207,7 +207,7 @@ inline void IdxCache::safely_delete(IdxCacheEntry* cache_entry) {
 
 inline void IdxCache::statistics() {
   printf(" ----- [IdxCache]:  cache size=%lu MB free_size=%.3lf MB ---- \n", cache_size, (double)free_size.load() / define::MB);
-  printf("comsumed idx cache size=%lf MB\n", (double)cache_size - (double)free_size.load() / define::MB);
+  printf("consumed hotspot buffer size = %lf MB\n", (double)cache_size - (double)free_size.load() / define::MB);
 }
 
 #endif // _IDX_CACHE_H_

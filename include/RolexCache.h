@@ -85,7 +85,7 @@ inline std::pair<int, int> RolexCache::search_range_from_cache(const Key &from, 
 inline void RolexCache::statistics() {
   printf(" ----- [RolexCache] ----- \n");
   auto cache_size = rolex_model->get_consumed_cache_size();
-  printf("comsumed cache size=%.3lf MB\n", cache_size);
+  printf("consumed cache size = %.3lf MB\n", cache_size);
 }
 
 #endif // _ROLEX_CACHE_H_

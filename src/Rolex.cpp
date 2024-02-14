@@ -53,7 +53,7 @@ RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id)
   // Cache
   rolex_cache = new RolexCache(dsm, load_keys);
 #ifdef SPECULATIVE_POINT_QUERY
-  idx_cache = new IdxCache(define::kHotIdxCacheSize, dsm);
+  idx_cache = new IdxCache(define::kHotspotBufSize, dsm);
 #endif
   // RDWC
   local_lock_table = new LocalLockTable();

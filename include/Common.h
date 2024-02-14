@@ -115,7 +115,7 @@ constexpr uint32_t leafSpanSize        = 64;    // 64  NOTE: this affects the ba
 constexpr uint64_t epsilon             = 32;    // 32  NOTE: this affects the cache_efficiency
 
 // Speculative cache
-constexpr int kHotIdxCacheSize = 50;
+constexpr int kHotspotBufSize = 50;
 
 // KV
 constexpr uint64_t kKeyMin = 1;
@@ -188,7 +188,7 @@ constexpr uint64_t kLocalLockNum    = 4 * MB;  // tune to an appropriate value (
 constexpr uint64_t kOnChipLockNum   = kLockChipMemSize * 8;  // 1bit-lock
 
 // Synonym leaf
-constexpr uint64_t leafNumMax        = 2000000;  // [CONFIG] 1000000 for a/b/c/d; 2000000 for la
+constexpr uint64_t leafNumMax        = 1000000;  // [CONFIG] 1000000 for a/b/c/d; 2000000 for la
 constexpr uint64_t synRegionOffset   = kLeafRegionStartOffset + ROUND_UP(leafNumMax * ROUND_UP(define::allocationLeafSize, 3), CACHELINE_ALIGN_BIT); // B
 }
 
