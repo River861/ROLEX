@@ -19,7 +19,7 @@
 
 // DEBUG
 // #define HOPSCOTCH_LEAF_NODE
-// #define INFOMATION_EMBEDDED_LOCK
+// #define VACANCY_AWARE_LOCK
 // #define METADATA_REPLICATION
 // #define SPECULATIVE_POINT_QUERY
 // #define ENABLE_VAR_LEN_KV
@@ -157,7 +157,7 @@ constexpr uint32_t neighborSize = 8;
 constexpr uint32_t entryGroupNum = leafSpanSize / neighborSize + (leafSpanSize % neighborSize);
 constexpr uint32_t groupSize     = leafEntrySize * neighborSize;
 
-#ifdef INFOMATION_EMBEDDED_LOCK
+#ifdef VACANCY_AWARE_LOCK
 constexpr uint32_t vacancyMapBit = 63 / 2;
 #endif
 

@@ -180,9 +180,9 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   lock_node(insert_leaf_addr, lock_buffer, sink);
 
   int read_entry_num = define::leafSpanSize, read_synonym_entry_num = define::leafSpanSize;
-#if (defined HOPSCOTCH_LEAF_NODE && defined INFOMATION_EMBEDDED_LOCK)
+#if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
   auto get_read_entry_num = [=](bool is_synonym){
-    auto if_lock = (InfoLock *)lock_buffer;
+    auto if_lock = (VALock *)lock_buffer;
     int l_idx = hash_idx;
     int entry_num = if_lock->get_read_entry_num_from_bitmap(l_idx, is_synonym);
     int r_idx = l_idx + entry_num;
@@ -206,7 +206,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // re-read leaf + synonym leaf
   if (syn_leaf_addrs.find(insert_leaf_addr) == syn_leaf_addrs.end()) {
     read_leaf_cnt ++;
-#if (defined HOPSCOTCH_LEAF_NODE && defined INFOMATION_EMBEDDED_LOCK)
+#if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
     hopscotch_fetch_node(insert_leaf_addr, hash_idx, leaf, sink, read_entry_num, false);
 #else
     fetch_node(insert_leaf_addr, leaf, sink, false);
@@ -215,7 +215,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
       syn_leaf_addrs[insert_leaf_addr] = leaf->metadata.synonym_ptr;
       read_leaf_cnt ++;
-#if (defined HOPSCOTCH_LEAF_NODE && defined INFOMATION_EMBEDDED_LOCK)
+#if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
       hopscotch_fetch_node(syn_leaf_addrs[insert_leaf_addr], hash_idx, syn_leaf, sink, read_synonym_entry_num);
 #else
       fetch_node(syn_leaf_addrs[insert_leaf_addr], syn_leaf, sink);
@@ -225,7 +225,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   else {
     std::vector<LeafNode*> two_leaves;
     read_leaf_cnt += 2;
-#if (defined HOPSCOTCH_LEAF_NODE && defined INFOMATION_EMBEDDED_LOCK)
+#if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
     hopscotch_fetch_nodes(std::vector<GlobalAddress>{insert_leaf_addr, syn_leaf_addrs[insert_leaf_addr]},
                           hash_idx, two_leaves, sink, std::vector<int>{read_entry_num, read_synonym_entry_num});
 #else
@@ -257,7 +257,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 #endif
 
 #ifdef HOPSCOTCH_LEAF_NODE
-#ifdef INFOMATION_EMBEDDED_LOCK
+#ifdef VACANCY_AWARE_LOCK
   for (int i = hash_idx; i != r_idx; i = (i + 1) % define::leafSpanSize) if (records[i].key == k) {  // existing key
     unlock_node(insert_leaf_addr, lock_buffer, sink);
     goto insert_finish;
@@ -275,7 +275,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
     // insert k into the synonym leaf
     GlobalAddress syn_leaf_addr = leaf->metadata.synonym_ptr;
     if (!syn_leaf) {  // allocate a new synonym leaf
-#ifdef INFOMATION_EMBEDDED_LOCK
+#ifdef VACANCY_AWARE_LOCK
       // read the rest of node
       if (read_entry_num < define::leafSpanSize) {
         LeafNode* tmp_leaf;
@@ -1009,9 +1009,9 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
 #endif
   dsm->write_sync_without_sink(encoded_synonym_buffer, synonym_addr, define::transLeafSize, sink, &busy_waiting_queue);
 
-#ifdef INFOMATION_EMBEDDED_LOCK
+#ifdef VACANCY_AWARE_LOCK
   // update in-lock metadata
-  auto update_vacancy_bitmap = [=](LeafNode* leaf_node, InfoLock *lock, bool is_synonym){
+  auto update_vacancy_bitmap = [=](LeafNode* leaf_node, VALock *lock, bool is_synonym){
     std::vector<int> empty_idxes;
     for (int i = 0; i < (int)define::leafSpanSize; ++ i) {
       const auto& e = leaf_node->records[i];
@@ -1019,7 +1019,7 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
     }
     lock->update_vacancy(0, define::leafSpanSize - 1, empty_idxes, is_synonym);
   };
-  auto if_lock = ((InfoLock *)lock_buffer);
+  auto if_lock = ((VALock *)lock_buffer);
   // update vacancy bitmap
   update_vacancy_bitmap(leaf, if_lock, false);
   update_vacancy_bitmap(synonym_leaf, if_lock, true);
@@ -1277,8 +1277,8 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
   const auto& metadata = leaf->metadata;
   auto lock_offset = get_lock_info();
 
-#ifdef INFOMATION_EMBEDDED_LOCK
-  auto if_lock = (InfoLock *)lock_buffer;
+#ifdef VACANCY_AWARE_LOCK
+  auto if_lock = (VALock *)lock_buffer;
   // update vacancy bitmap
   std::vector<int> empty_idxes;
   auto get_empty_idxes = [=, &empty_idxes](int l, int r){

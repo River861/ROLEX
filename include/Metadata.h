@@ -28,8 +28,8 @@ inline bool operator==(const PackedGAddr &lhs, const PackedGAddr &rhs) {
 }
 
 
-#ifdef INFOMATION_EMBEDDED_LOCK
-class InfoLock {
+#ifdef VACANCY_AWARE_LOCK
+class VALock {
 public:
   uint64_t vacancy_bitmap          : define::vacancyMapBit;
   uint64_t synonym_vacancy_bitmap  : define::vacancyMapBit;
@@ -37,7 +37,7 @@ public:
   uint64_t lock_bit        : 1;
 
 public:
-  InfoLock(uint64_t vacancy_bitmap, uint64_t synonym_vacancy_bitmap) : vacancy_bitmap(vacancy_bitmap), synonym_vacancy_bitmap(synonym_vacancy_bitmap), lock_bit(0) {}
+  VALock(uint64_t vacancy_bitmap, uint64_t synonym_vacancy_bitmap) : vacancy_bitmap(vacancy_bitmap), synonym_vacancy_bitmap(synonym_vacancy_bitmap), lock_bit(0) {}
 
   void update_vacancy(int l, int r, const std::vector<int>& empty_idxes, bool is_synonym=false) {  // [l, r]
     int span_size = define::leafSpanSize;
@@ -97,7 +97,7 @@ private:
   }
 } __attribute__((packed));
 
-static_assert(sizeof(InfoLock) == sizeof(uint64_t));
+static_assert(sizeof(VALock) == sizeof(uint64_t));
 #endif
 
 

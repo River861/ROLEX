@@ -62,7 +62,7 @@ endif()
 
 #Tree Options
 option (HOPSCOTCH_LEAF_NODE "+ Hopscotch leaf node" OFF)
-option (INFOMATION_EMBEDDED_LOCK "+ Information-embedded lock" ON)
+option (VACANCY_AWARE_LOCK "+ Information-embedded lock" ON)
 option (METADATA_REPLICATION "+ Metadata replication" OFF)
 option (SPECULATIVE_POINT_QUERY "+ Speculative point query" OFF)
 # Variable-length KV
@@ -74,10 +74,10 @@ else()
     remove_definitions(-DHOPSCOTCH_LEAF_NODE)
 endif()
 
-if(INFOMATION_EMBEDDED_LOCK)
-    add_definitions(-DINFOMATION_EMBEDDED_LOCK)
+if(VACANCY_AWARE_LOCK)
+    add_definitions(-DVACANCY_AWARE_LOCK)
 else()
-    remove_definitions(-DINFOMATION_EMBEDDED_LOCK)
+    remove_definitions(-DVACANCY_AWARE_LOCK)
 endif()
 
 if(METADATA_REPLICATION)
