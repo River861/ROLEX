@@ -728,12 +728,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
 #endif
 
   // 1. Read predict leaves and the synonmy leaves
-  // auto [l, r] = rolex_cache->search_from_cache(k);
-  static std::random_device rd;
-  static std::mt19937 e(rd());
-  static std::uniform_int_distribution<uint64_t> u(0, define::leafNumMax - 100);  // random opsition
-  int l = u(e);
-  int r = l;
+  auto [l, r] = rolex_cache->search_from_cache(k);
 
 #ifdef SPECULATIVE_POINT_QUERY
   want_speculative_read[dsm->getMyThreadID()] ++;
@@ -763,13 +758,13 @@ re_read:
     leaf_addrs.emplace_back(leaf_addr);
     locked_leaf_addrs.emplace_back(leaf_addr);
   }
-  // for (int i = l; i <= r; ++ i) { // synonym leaves
-  //   auto leaf_addr = get_leaf_address(i);
-  //   if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
-  //     leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
-  //     locked_leaf_addrs.emplace_back(leaf_addr);
-  //   }
-  // }
+  for (int i = l; i <= r; ++ i) { // synonym leaves
+    auto leaf_addr = get_leaf_address(i);
+    if (syn_leaf_addrs.find(leaf_addr) != syn_leaf_addrs.end()) {
+      leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+      locked_leaf_addrs.emplace_back(leaf_addr);
+    }
+  }
   read_leaf_cnt += leaf_addrs.size();
 #ifdef HOPSCOTCH_LEAF_NODE
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, leaves, sink, std::vector<int>(leaf_addrs.size(), define::neighborSize), false);
@@ -780,16 +775,16 @@ re_read:
   std::vector<GlobalAddress> append_leaf_addrs;
   std::vector<LeafNode*> append_leaves;
   std::vector<GlobalAddress> append_locked_leaf_addrs;
-  // for (int i = 0; i <= r - l; ++ i) {
-  //   auto leaf_addr = leaf_addrs[i];
-  //   auto leaf = leaves[i];
-  //   if (leaf->metadata.synonym_ptr != GlobalAddress::Null()
-  //       && syn_leaf_addrs.find(leaf_addr) == syn_leaf_addrs.end()) {
-  //     syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
-  //     append_leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
-  //     append_locked_leaf_addrs.emplace_back(leaf_addr);
-  //   }
-  // }
+  for (int i = 0; i <= r - l; ++ i) {
+    auto leaf_addr = leaf_addrs[i];
+    auto leaf = leaves[i];
+    if (leaf->metadata.synonym_ptr != GlobalAddress::Null()
+        && syn_leaf_addrs.find(leaf_addr) == syn_leaf_addrs.end()) {
+      syn_leaf_addrs[leaf_addr] = leaf->metadata.synonym_ptr;
+      append_leaf_addrs.emplace_back(syn_leaf_addrs[leaf_addr]);
+      append_locked_leaf_addrs.emplace_back(leaf_addr);
+    }
+  }
   if (!append_leaf_addrs.empty()) {
     leaf_read_syn[dsm->getMyThreadID()] ++;
     read_leaf_cnt += append_leaf_addrs.size();
