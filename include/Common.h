@@ -111,8 +111,8 @@ constexpr uint64_t fakePort            = 8888;
 constexpr uint64_t modelRegionSize     = 2 * GB;
 constexpr uint64_t fakeLeafRegionSize  = 2 * MB;
 constexpr uint64_t fakeRegLeafRegion   = 101;
-constexpr uint32_t leafSpanSize        = 16;    // 16  NOTE: this affects the bandwidth/IOPS
-constexpr uint64_t epsilon             = 16;    // 16  NOTE: this affects the cache_efficiency
+constexpr uint32_t leafSpanSize        = 64;    // 16  NOTE: this affects the bandwidth/IOPS
+constexpr uint64_t epsilon             = 64;    // 16  NOTE: this affects the cache_efficiency
 
 // Speculative cache
 constexpr int kHotspotBufSize = 50;
@@ -153,7 +153,7 @@ constexpr uint32_t leafEntrySize = versionSize + keyLen + inlineValLen;
 #endif
 
 // Hopscotch Hashing
-constexpr uint32_t neighborSize = 4;
+constexpr uint32_t neighborSize = 8;
 constexpr uint32_t entryGroupNum = leafSpanSize / neighborSize + (leafSpanSize % neighborSize);
 constexpr uint32_t groupSize     = leafEntrySize * neighborSize;
 
