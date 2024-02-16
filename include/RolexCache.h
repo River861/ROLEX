@@ -16,7 +16,7 @@
 #include <atomic>
 #include <vector>
 
-// #define USE_INT_128
+#define USE_INT_128
 
 using leaf_alloc_t = rolex::LeafAllocator<LeafNode, sizeof(LeafNode)>;
 #ifdef USE_INT_128
