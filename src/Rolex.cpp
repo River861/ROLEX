@@ -733,7 +733,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
   static std::mt19937 e(rd());
   static std::uniform_int_distribution<uint64_t> u(0, define::leafNumMax - 100);  // random opsition
   int l = u(e);
-  int r = l + 1;
+  int r = l;
 
 #ifdef SPECULATIVE_POINT_QUERY
   want_speculative_read[dsm->getMyThreadID()] ++;
