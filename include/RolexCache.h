@@ -16,11 +16,20 @@
 #include <atomic>
 #include <vector>
 
+// #define USE_INT_128
+
 using leaf_alloc_t = rolex::LeafAllocator<LeafNode, sizeof(LeafNode)>;
+#ifdef USE_INT_128
 using model_alloc_t = rolex::ModelAllocator<__uint128_t>;
 using remote_memory_t = rolex::RemoteMemory<leaf_alloc_t, model_alloc_t>;
 using leaf_table_t = rolex::LeafTable<__uint128_t, Value, LeafNode, leaf_alloc_t>;
 using rolex_t = rolex::Rolex<__uint128_t, Value, LeafNode, leaf_alloc_t, remote_memory_t, define::epsilon>;
+#else
+using model_alloc_t = rolex::ModelAllocator<uint64_t>;
+using remote_memory_t = rolex::RemoteMemory<leaf_alloc_t, model_alloc_t>;
+using leaf_table_t = rolex::LeafTable<uint64_t, Value, LeafNode, leaf_alloc_t>;
+using rolex_t = rolex::Rolex<uint64_t, Value, LeafNode, leaf_alloc_t, remote_memory_t, define::epsilon>;
+#endif
 
 
 class RolexCache {
@@ -36,38 +45,54 @@ public:
 private:
   DSM *dsm;
   rolex_t* rolex_model;
-  std::vector<__uint128_t> int128_keys;
+#ifdef USE_INT_128
+  std::vector<__uint128_t> int_keys;
+#else
+  std::vector<uint64_t> int_keys;
+#endif
 };
 
 inline RolexCache::RolexCache(DSM* dsm, const std::vector<Key> &load_keys) : dsm(dsm) {
   // processing data
-  for (const auto& k : load_keys) int128_keys.emplace_back(key2int128(k));
-  std::sort(int128_keys.begin(), int128_keys.end());
-  int128_keys.erase(std::unique(int128_keys.begin(), int128_keys.end()), int128_keys.end());
-  std::sort(int128_keys.begin(), int128_keys.end());
-  for(int i = 1; i < int128_keys.size(); ++ i){
-    assert(int128_keys[i] >= int128_keys[i - 1]);
+#ifdef USE_INT_128
+  for (const auto& k : load_keys) int_keys.emplace_back(key2int128(k));
+#else
+  for (const auto& k : load_keys) int_keys.emplace_back(key2int(k));
+#endif
+  std::sort(int_keys.begin(), int_keys.end());
+  int_keys.erase(std::unique(int_keys.begin(), int_keys.end()), int_keys.end());
+  std::sort(int_keys.begin(), int_keys.end());
+  for(int i = 1; i < int_keys.size(); ++ i){
+    assert(int_keys[i] >= int_keys[i - 1]);
   }
 
   // initial local models
   rolex::RCtrl* ctrl = new RCtrl(define::fakePort);
   rolex::RM_config conf(ctrl, define::modelRegionSize, define::fakeLeafRegionSize, define::fakeRegLeafRegion);
   remote_memory_t* RM = new remote_memory_t(conf);
-  rolex_model = new rolex_t(RM, int128_keys);
+  rolex_model = new rolex_t(RM, int_keys);
 }
 
 
 inline std::pair<int, int> RolexCache::search_from_cache(const Key &k) {  // [l, r]
+#ifdef USE_INT_128
   auto key = key2int128(k);
+#else
+  auto key = key2int(k);
+#endif
   auto [l, r, leaf_idx_offset, _] = rolex_model->get_leaf_range(key);
   return std::make_pair(leaf_idx_offset + l, leaf_idx_offset + r);
 }
 
 
 inline std::tuple<int, int, int> RolexCache::search_from_cache_for_insert(const Key &k) {  // [l, r, insert_leaf_idx]
+#ifdef USE_INT_128
   auto key = key2int128(k);
+#else
+  auto key = key2int(k);
+#endif
   auto [l, r, leaf_idx_offset, capacity_offset] = rolex_model->get_leaf_range(key);
-  int global_key_idx = std::lower_bound(int128_keys.begin(), int128_keys.end(), key) - int128_keys.begin();
+  int global_key_idx = std::lower_bound(int_keys.begin(), int_keys.end(), key) - int_keys.begin();
   int insert_idx = (global_key_idx - capacity_offset) / define::leafSpanSize;
   assert(insert_idx >= l && insert_idx <= r);
   return std::make_tuple(leaf_idx_offset + l, leaf_idx_offset + r, leaf_idx_offset + insert_idx);
@@ -75,8 +100,13 @@ inline std::tuple<int, int, int> RolexCache::search_from_cache_for_insert(const 
 
 
 inline std::pair<int, int> RolexCache::search_range_from_cache(const Key &from, const Key &to) {  // [l, r]
+#ifdef USE_INT_128
   auto from_key = key2int128(from);
   auto to_key = key2int128(to);
+#else
+  auto from_key = key2int(from);
+  auto to_key = key2int(to);
+#endif
   auto [l, _1, leaf_idx_offset_from, _2]  = rolex_model->get_leaf_range(from_key);
   auto [_3, r, leaf_idx_offset_to  , _4] = rolex_model->get_leaf_range(to_key);
   return std::make_pair(leaf_idx_offset_from + l, leaf_idx_offset_to + r);
