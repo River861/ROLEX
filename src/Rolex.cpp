@@ -344,8 +344,8 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // 4. Writing and unlocking
   leaf_addrs.clear();
   std::vector<LeafNode*> leaves;
-  if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
-  if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
+  leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
+  leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
 #endif
   }
