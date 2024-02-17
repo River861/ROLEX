@@ -99,7 +99,6 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, uint64_t* lock_buffer
 
   // lock function
   auto acquire_lock = [=](const GlobalAddress &node_addr) {
-    // return dsm->cas_mask_sync_without_sink(node_addr + lock_offset, 0UL, ~0UL, lock_buffer, 1ULL << 63, ~0ULL, sink, &busy_waiting_queue);
     return dsm->cas_mask_sync(node_addr + lock_offset, 0UL, ~0UL, lock_buffer, 1ULL << 63, ~0ULL, sink);
   };
   int cnt = 0;
@@ -125,11 +124,9 @@ void RolexIndex::unlock_node(const GlobalAddress &node_addr, uint64_t* lock_buff
   // unlock function
   auto unlock = [=](const GlobalAddress &node_addr){
     if (async) {
-      // dsm->write_without_sink((char *)lock_buffer, node_addr + lock_offset, sizeof(uint64_t), false, sink, &busy_waiting_queue);
       dsm->write((char *)lock_buffer, node_addr + lock_offset, sizeof(uint64_t), false, sink);
     }
     else {
-      // dsm->write_sync_without_sink((char *)lock_buffer, node_addr + lock_offset, sizeof(uint64_t), sink, &busy_waiting_queue);
       dsm->write_sync((char *)lock_buffer, node_addr + lock_offset, sizeof(uint64_t), sink);
     }
   };
@@ -172,7 +169,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink, std::vector<int>(leaf_addrs.size(), define::neighborSize));
 #else
-  fetch_nodes(leaf_addrs, _, sink);
+  // fetch_nodes(leaf_addrs, _, sink);
 #endif
 
   // 2. Fine-grained locking and re-read
@@ -253,7 +250,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
   auto data_block = new (block_buffer) DataBlock(v);
   auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
-  // dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
   dsm->write_sync(block_buffer, block_addr, define::dataBlockLen, sink);
   // change value into the DataPointer value pointing to the DataBlock
   v = (uint64_t)DataPointer(define::dataBlockLen, block_addr);
@@ -654,7 +650,6 @@ update_entry:
   auto block_buffer = (dsm->get_rbuf(sink)).get_block_buffer();
   auto data_block = new (block_buffer) DataBlock(target_e.value);
   auto block_addr = dsm->alloc(define::dataBlockLen, PACKED_ADDR_ALIGN_BIT);
-  // dsm->write_sync_without_sink(block_buffer, block_addr, define::dataBlockLen, sink, &busy_waiting_queue);
   dsm->write_sync(block_buffer, block_addr, define::dataBlockLen, sink);
   // change value into the DataPointer value pointing to the DataBlock
   target_e.update(target_e.key, (uint64_t)DataPointer(define::dataBlockLen, block_addr));
@@ -1012,7 +1007,6 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
 #else
   VerMng::encode_node_versions(synonym_buffer, encoded_synonym_buffer);
 #endif
-  // dsm->write_sync_without_sink(encoded_synonym_buffer, synonym_addr, define::transLeafSize, sink, &busy_waiting_queue);
   dsm->write_sync(encoded_synonym_buffer, synonym_addr, define::transLeafSize, sink);
 
 #ifdef VACANCY_AWARE_LOCK
@@ -1042,7 +1036,6 @@ void RolexIndex::hopscotch_split_and_unlock(LeafNode* leaf, const Key& k, Value 
 #endif
   auto lock_offset = get_lock_info();
   memcpy(encoded_leaf_buffer + lock_offset, lock_buffer, sizeof(uint64_t));  // unlock
-  // dsm->write_sync_without_sink(encoded_leaf_buffer, node_addr, define::transLeafSize + define::allocationLockSize, sink, &busy_waiting_queue);
   dsm->write_sync(encoded_leaf_buffer, node_addr, define::transLeafSize + define::allocationLockSize, sink);
 }
 
@@ -1317,12 +1310,10 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
 #endif
     // write segment and unlock
     if (!need_unlock) {
-      // dsm->write_sync_without_sink(encoded_segment_buffer, node_addr + raw_offset, raw_len, sink, &busy_waiting_queue);
       dsm->write_sync(encoded_segment_buffer, node_addr + raw_offset, raw_len, sink);
     }
     else if (r_idx == define::leafSpanSize - 1) {
       memcpy(encoded_segment_buffer + raw_len + lock_offset - define::transLeafSize, lock_buffer, sizeof(uint64_t));  // unlock
-      // dsm->write_sync_without_sink(encoded_segment_buffer, node_addr + raw_offset, raw_len + define::allocationLockSize, sink, &busy_waiting_queue);
       dsm->write_sync(encoded_segment_buffer, node_addr + raw_offset, raw_len + define::allocationLockSize, sink);
     }
     else {
@@ -1336,7 +1327,6 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
       rs[1].dest = (node_addr + lock_offset).to_uint64();
       rs[1].size = sizeof(uint64_t);
       rs[1].is_on_chip = false;
-      // dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
       dsm->write_batch_sync(&rs[0], 2, sink);
     }
   }
@@ -1381,7 +1371,6 @@ void RolexIndex::segment_write_and_unlock(LeafNode* leaf, int l_idx, int r_idx, 
     rs[1].source = (uint64_t)encoded_segment_buffer_2;
     rs[1].dest = (node_addr + raw_offset_2).to_uint64();
     rs[1].is_on_chip = false;
-    // dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
     dsm->write_batch_sync(&rs[0], 2, sink);
   }
   return;
@@ -1410,7 +1399,6 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
   auto lock_offset = get_lock_info();
   if (idx == define::leafSpanSize - 1 && node_addr == locked_leaf_addr) {
     memcpy(encoded_entry_buffer + raw_len + lock_offset - define::transLeafSize, lock_buffer, sizeof(uint64_t));  // unlock
-    // dsm->write_sync_without_sink(encoded_entry_buffer, node_addr + raw_offset, raw_len + define::allocationLockSize, sink, &busy_waiting_queue);
     dsm->write_sync(encoded_entry_buffer, node_addr + raw_offset, raw_len + define::allocationLockSize, sink);
   }
   else {
@@ -1424,7 +1412,6 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
     rs[1].dest = (locked_leaf_addr + lock_offset).to_uint64();
     rs[1].size = sizeof(uint64_t);
     rs[1].is_on_chip = false;
-    // dsm->write_batch_sync_without_sink(&rs[0], 2, sink, &busy_waiting_queue);
     dsm->write_batch_sync(&rs[0], 2, sink);
   }
   return;
