@@ -169,7 +169,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink, std::vector<int>(leaf_addrs.size(), define::neighborSize));
 #else
-  // fetch_nodes(leaf_addrs, _, sink);
+  fetch_nodes(leaf_addrs, _, sink);
 #endif
 
   // 2. Fine-grained locking and re-read
