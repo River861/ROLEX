@@ -47,6 +47,7 @@ private:
   std::atomic<int64_t> free_size;
   std::atomic<int64_t> delay_cnt;
   DSM *dsm;
+  bool is_disabled;
 
   // HashTable
   static const int BUCKET_SIZE = std::max(HASH_BUCKET_SIZE, (int)ROUND_UP(define::kHotspotBufSize * define::MB / sizeof(IdxCacheEntry*) / HASH_TABLE_SIZE, 3));
@@ -62,10 +63,14 @@ inline IdxCache::IdxCache(int cache_size, DSM* dsm) : cache_size(cache_size), ds
   memset(hash_table, 0, sizeof(IdxCacheEntry*) * HASH_TABLE_SIZE * BUCKET_SIZE);
   free_size.store(define::MB * cache_size);
   delay_cnt.store(0);
+  is_disabled = (cache_size == 0);
 }
 
 
 inline bool IdxCache::add_to_cache(const GlobalAddress& leaf_addr, int kv_idx, const Key& k) {
+  if (is_disabled) {
+    return false;
+  }
   uint64_t ht_idx = get_hashed_cache_table_index(leaf_addr, kv_idx);
   auto& bucket = hash_table[ht_idx];
   // search from existing slot
@@ -113,6 +118,9 @@ inline bool IdxCache::add_to_cache(const GlobalAddress& leaf_addr, int kv_idx, c
 
 inline bool IdxCache::search_idx_from_cache(const GlobalAddress& leaf_addr, int l_idx, int r_idx, const Key &k, int& kv_idx) {
   thread_local std::vector<std::pair<int, int32_t> > candidates;
+  if (is_disabled) {
+    return false;
+  }
 
   auto search_for_candidate = [&](int idx){
     uint64_t ht_idx = get_hashed_cache_table_index(leaf_addr, idx);
