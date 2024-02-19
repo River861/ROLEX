@@ -153,7 +153,7 @@ constexpr uint32_t leafEntrySize = versionSize + keyLen + inlineValLen;
 #endif
 
 // Hopscotch Hashing
-constexpr uint32_t neighborSize = 8;
+constexpr uint32_t neighborSize = 4;
 constexpr uint32_t entryGroupNum = leafSpanSize / neighborSize + (leafSpanSize % neighborSize);
 constexpr uint32_t groupSize     = leafEntrySize * neighborSize;
 
