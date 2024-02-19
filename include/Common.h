@@ -153,7 +153,7 @@ constexpr uint32_t leafEntrySize = versionSize + keyLen + inlineValLen;
 #endif
 
 // Hopscotch Hashing
-constexpr uint32_t neighborSize = 4;
+constexpr uint32_t neighborSize = 8;
 constexpr uint32_t entryGroupNum = leafSpanSize / neighborSize + (leafSpanSize % neighborSize);
 constexpr uint32_t groupSize     = leafEntrySize * neighborSize;
 
@@ -188,7 +188,7 @@ constexpr uint64_t kLocalLockNum    = 4 * MB;  // tune to an appropriate value (
 constexpr uint64_t kOnChipLockNum   = kLockChipMemSize * 8;  // 1bit-lock
 
 // Synonym leaf
-constexpr uint64_t leafNumMax        = 140000000 / 16;  // [CONFIG] 1000000 for a/b/c/d; 2000000 for la
+constexpr uint64_t leafNumMax        = 70000000 / 16;  // [CONFIG] 1000000 for a/b/c/d; 2000000 for la
 constexpr uint64_t synRegionOffset   = kLeafRegionStartOffset + ROUND_UP(leafNumMax * ROUND_UP(define::allocationLeafSize, 3), CACHELINE_ALIGN_BIT); // B
 }
 
