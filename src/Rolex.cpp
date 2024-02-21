@@ -477,7 +477,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
     MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffers[i]);
     LeafVersionManager::encode_node_versions(intermediate_leaf_buffers[i], encoded_leaf_buffers[i]);
 #else
-    // VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffers[i]);
+    VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffers[i]);
 #endif
     RdmaOpRegion r;
     r.source = (uint64_t)encoded_leaf_buffers[i];
