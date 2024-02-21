@@ -432,9 +432,8 @@ re_fetch:
     MetadataManager::decode_node_metadata(intermediate_buffers[i], (char*)leaves[i]);
 #else
     if (!(VerMng::decode_node_versions(raw_buffers[i], (char*)leaves[i]))) {
-      // FUCK
-      // read_leaf_retry[dsm->getMyThreadID()] ++;
-      // goto re_fetch;
+      read_leaf_retry[dsm->getMyThreadID()] ++;
+      goto re_fetch;
     }
 #endif
   }
@@ -501,9 +500,8 @@ re_read:
   MetadataManager::decode_node_metadata(intermediate_buffer, leaf_buffer);
 #else
   if (!(VerMng::decode_node_versions(raw_buffer, leaf_buffer))) {
-    // FUCK
-    // read_leaf_retry[dsm->getMyThreadID()] ++;
-    // goto re_read;
+    read_leaf_retry[dsm->getMyThreadID()] ++;
+    goto re_read;
   }
 #endif
   if (update_local_slt) if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
