@@ -455,21 +455,34 @@ re_fetch:
 void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_addrs, const std::vector<LeafNode*>& leaves, const GlobalAddress& locked_leaf_addr, uint64_t* lock_buffer, CoroPull* sink) {
   assert(leaf_addrs.size() == leaves.size());
 
+  std::vector<char*> encoded_leaf_buffers;
   std::vector<RdmaOpRegion> rs;
-  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
+#ifdef METADATA_REPLICATION
+  std::vector<char*> intermediate_leaf_buffers;
+#endif
+
+  for (const auto& leaf_addr : leaf_addrs) {
     auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    encoded_leaf_buffers.emplace_back(encoded_leaf_buffer);
     memset(encoded_leaf_buffer, 0, define::allocationLeafSize);
 #ifdef METADATA_REPLICATION
-    auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
-    MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffer);
-    LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
+    auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    intermediate_leaf_buffers.emplace_back(intermediate_buffer);
+    memset(intermediate_buffers, 0, define::allocationLeafSize);
+#endif
+  }
+
+  for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
+#ifdef METADATA_REPLICATION
+    MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffers[i]);
+    LeafVersionManager::encode_node_versions(intermediate_leaf_buffers[i], encoded_leaf_buffers[i]);
 #else
-    VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffer);
+    VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffers[i]);
 #endif
     RdmaOpRegion r;
-    r.source = (uint64_t)encoded_leaf_buffer;
+    r.source = (uint64_t)encoded_leaf_buffers[i];
     r.dest = leaf_addrs[i].to_uint64();
-    r.size = define::allocationLeafSize;  // define::transLeafSize;
+    r.size = define::transLeafSize;
     r.is_on_chip = false;
     rs.emplace_back(r);
   }
