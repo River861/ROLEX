@@ -169,7 +169,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   int hash_idx = get_hashed_leaf_entry_index(k);
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink, std::vector<int>(leaf_addrs.size(), define::neighborSize));
 #else
-  // printf("FUCK 1\n");
   fetch_nodes(leaf_addrs, _, sink);
 #endif
 
@@ -178,7 +177,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   LeafNode* leaf = nullptr, *syn_leaf = nullptr;
   // lock node
   auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
-  // printf("FUCK 2\n");
   lock_node(insert_leaf_addr, lock_buffer, sink);
 
   int read_entry_num = define::leafSpanSize, read_synonym_entry_num = define::leafSpanSize;
@@ -348,7 +346,6 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
-  // printf("FUCK 7\n");
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
   // unlock_node(insert_leaf_addr, lock_buffer, sink);
 #endif
@@ -416,7 +413,6 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   }
 
 re_fetch:
-  // printf("FUCK them!!\n");
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     RdmaOpRegion r;
