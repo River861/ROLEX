@@ -170,7 +170,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   hopscotch_fetch_nodes(leaf_addrs, hash_idx, _, sink, std::vector<int>(leaf_addrs.size(), define::neighborSize));
 #else
   // printf("FUCK 1\n");
-  // fetch_nodes(leaf_addrs, _, sink);
+  fetch_nodes(leaf_addrs, _, sink);
 #endif
 
   // 2. Fine-grained locking and re-read
@@ -349,7 +349,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   // printf("FUCK 7\n");
-  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
+  // write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
