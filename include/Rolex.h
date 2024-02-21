@@ -64,7 +64,7 @@ public:
 private:
   // common
   void before_operation(CoroPull* sink);
-  GlobalAddress get_leaf_address(int leaf_idx);
+  GlobalAddress get_leaf_address(uint64_t leaf_idx);
 
   // high-level functions
   std::tuple<bool, GlobalAddress, GlobalAddress, int> _search(const Key &k, Value &v, CoroPull* sink);  // return (key_is_found, leaf_addr, locked_leaf_addr)
