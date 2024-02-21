@@ -49,8 +49,8 @@ inline bool VersionManager<NODE, ENTRY>::decode_node_versions(char *input_buffer
     }
     // node- and entry-level consistency check
     if (obj_version != cacheline_version) {
-      printf("FUCK here!!\n");
-      assert(false);
+      // printf("FUCK here!!\n");
+      // assert(false);
       return false;
     }
   }
