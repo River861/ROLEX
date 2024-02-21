@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.10.2 FATAL_ERROR)
 project(ROLEX)
 
 #Compiler options
-set(CMAKE_C_FLAGS "-Wall -Wno-deprecated-declarations -Wsign-compare -g")   # -DNDEBUG
-# set(CMAKE_C_FLAGS "-Wall -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-but-set-variable -Wsign-compare -O3")  # -O3
+# set(CMAKE_C_FLAGS "-Wall -Wno-deprecated-declarations -Wsign-compare -g")   # -DNDEBUG
+set(CMAKE_C_FLAGS "-Wall -Wno-deprecated-declarations -Wno-unused-variable -Wno-unused-but-set-variable -Wsign-compare -O3")  # -O3
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -std=c++17")
 
 #Link Options
@@ -64,7 +64,7 @@ endif()
 option (HOPSCOTCH_LEAF_NODE "+ Hopscotch leaf node" OFF)
 option (VACANCY_AWARE_LOCK "+ Information-embedded lock" ON)
 option (METADATA_REPLICATION "+ Metadata replication" OFF)
-option (SPECULATIVE_READ "+ Speculative point query" OFF)
+option (SPECULATIVE_POINT_QUERY "+ Speculative point query" OFF)
 # Variable-length KV
 option (ENABLE_VAR_LEN_KV "Turn on the support for variable-length KVs" OFF)
 
@@ -86,10 +86,10 @@ else()
     remove_definitions(-DMETADATA_REPLICATION)
 endif()
 
-if(SPECULATIVE_READ)
-    add_definitions(-DSPECULATIVE_READ)
+if(SPECULATIVE_POINT_QUERY)
+    add_definitions(-DSPECULATIVE_POINT_QUERY)
 else()
-    remove_definitions(-DSPECULATIVE_READ)
+    remove_definitions(-DSPECULATIVE_POINT_QUERY)
 endif()
 
 if(ENABLE_VAR_LEN_KV)
