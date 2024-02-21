@@ -80,7 +80,7 @@ using CoroQueue = std::queue<uint16_t>;
 namespace define {
 // KV size
 constexpr uint32_t keyLen = 8;
-constexpr uint32_t simulatedValLen = 512;
+constexpr uint32_t simulatedValLen = 64;
 #ifndef ENABLE_VAR_LEN_KV
 constexpr uint32_t inlineValLen = simulatedValLen;
 #else
