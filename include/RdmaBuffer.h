@@ -77,13 +77,8 @@ public:
   }
 
   char *get_leaf_buffer() {
-    // leaf_buffer_cur = (leaf_buffer_cur + 1) % kLeafBufferCnt;
-    // return leaf_buffer + leaf_buffer_cur * define::allocationLeafSize;
-    // FUCK
     leaf_buffer_cur = (leaf_buffer_cur + 1) % kLeafBufferCnt;
-    char *ret = leaf_buffer + leaf_buffer_cur * define::allocationLeafSize;
-    memset(ret, 0, define::transLeafSize);
-    return ret;
+    return leaf_buffer + leaf_buffer_cur * define::allocationLeafSize;
   }
 
   char *get_segment_buffer() {

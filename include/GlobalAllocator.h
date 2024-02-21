@@ -33,10 +33,10 @@ public:
     GlobalAddress res = start;
     if (bitmap_tail >= bitmap_len) {
       Debug::notifyError("shared memory space run out");
-      // assert(false);
-      bitmap_tail = 1;
-      memset(bitmap, 0, bitmap_len);
-      bitmap[0] = true;
+      assert(false);
+      // bitmap_tail = 1;
+      // memset(bitmap, 0, bitmap_len);
+      // bitmap[0] = true;
     }
 
     if (bitmap[bitmap_tail] == false) {
