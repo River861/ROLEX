@@ -419,6 +419,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
   }
 
 re_fetch:
+  printf("FUCK them!!\n");
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     RdmaOpRegion r;
@@ -498,6 +499,7 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
 #endif
   leaf = (LeafNode *) leaf_buffer;
 re_read:
+  printf("FUCK it!!\n");
   memset(leaf_buffer, 0, define::allocationLeafSize);
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
