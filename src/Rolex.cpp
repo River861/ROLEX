@@ -177,7 +177,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   LeafNode* leaf = nullptr, *syn_leaf = nullptr;
   // lock node
   auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
-  lock_node(insert_leaf_addr, lock_buffer, sink);
+  // lock_node(insert_leaf_addr, lock_buffer, sink);
 
   int read_entry_num = define::leafSpanSize, read_synonym_entry_num = define::leafSpanSize;
 #if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
@@ -346,7 +346,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
-  // write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
+  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
