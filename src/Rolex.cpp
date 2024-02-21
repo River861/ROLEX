@@ -401,6 +401,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    memset(leaf_buffer, 0, define::allocationLeafSize);
     leaves.emplace_back((LeafNode*) leaf_buffer);
 #ifdef METADATA_REPLICATION
     auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
@@ -485,6 +486,7 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
   auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
 #endif
   leaf = (LeafNode *) leaf_buffer;
+  memset(leaf_buffer, 0, define::allocationLeafSize);
 re_read:
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
@@ -1144,6 +1146,7 @@ void RolexIndex::hopscotch_fetch_nodes(const std::vector<GlobalAddress>& leaf_ad
     auto raw_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     raw_buffers.emplace_back(raw_buffer);
     auto leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    memset(leaf_buffer, 0, define::allocationLeafSize);
     leaves.emplace_back((LeafNode*) leaf_buffer);
 
     auto segment_size_r = std::min(entry_nums[i], (int)define::leafSpanSize - hash_idx);
