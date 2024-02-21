@@ -488,8 +488,8 @@ void RolexIndex::fetch_node(const GlobalAddress& leaf_addr, LeafNode*& leaf, Cor
   auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
 #endif
   leaf = (LeafNode *) leaf_buffer;
-  memset(leaf_buffer, 0, define::allocationLeafSize);
 re_read:
+  memset(leaf_buffer, 0, define::allocationLeafSize);
   dsm->read_sync(raw_buffer, leaf_addr, define::transLeafSize, sink);
   // consistency check
 #ifdef METADATA_REPLICATION
