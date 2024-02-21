@@ -484,7 +484,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
     r.dest = leaf_addrs[i].to_uint64();
     r.size = define::transLeafSize;
     r.is_on_chip = false;
-    rs.emplace_back(r);
+    // rs.emplace_back(r);
   }
   // unlock
   RdmaOpRegion r;
