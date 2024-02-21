@@ -64,7 +64,7 @@ endif()
 option (HOPSCOTCH_LEAF_NODE "+ Hopscotch leaf node" OFF)
 option (VACANCY_AWARE_LOCK "+ Information-embedded lock" ON)
 option (METADATA_REPLICATION "+ Metadata replication" OFF)
-option (SPECULATIVE_POINT_QUERY "+ Speculative point query" OFF)
+option (SPECULATIVE_READ "+ Speculative point query" OFF)
 # Variable-length KV
 option (ENABLE_VAR_LEN_KV "Turn on the support for variable-length KVs" OFF)
 
@@ -86,10 +86,10 @@ else()
     remove_definitions(-DMETADATA_REPLICATION)
 endif()
 
-if(SPECULATIVE_POINT_QUERY)
-    add_definitions(-DSPECULATIVE_POINT_QUERY)
+if(SPECULATIVE_READ)
+    add_definitions(-DSPECULATIVE_READ)
 else()
-    remove_definitions(-DSPECULATIVE_POINT_QUERY)
+    remove_definitions(-DSPECULATIVE_READ)
 endif()
 
 if(ENABLE_VAR_LEN_KV)
