@@ -409,7 +409,6 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
 #endif
   }
 
-  std::cout << "FUCK!" << std::endl;
 re_fetch:
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
