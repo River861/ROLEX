@@ -174,7 +174,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 #endif
 
   // 2. Fine-grained locking and re-read
-  GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
+  const GlobalAddress insert_leaf_addr = get_leaf_address(insert_idx);
   LeafNode* leaf = nullptr, *syn_leaf = nullptr;
   // lock node
   auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
@@ -347,7 +347,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   leaf_addrs.clear();
   std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
-  // if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
+  if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   // printf("FUCK 7\n");
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
   // unlock_node(insert_leaf_addr, lock_buffer, sink);
@@ -464,7 +464,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
     MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffer);
     LeafVersionManager::encode_node_versions(intermediate_leaf_buffer, encoded_leaf_buffer);
 #else
-    VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffer);
+    // VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffer);
 #endif
     RdmaOpRegion r;
     r.source = (uint64_t)encoded_leaf_buffer;
