@@ -55,7 +55,7 @@ public:
     zero_byte       = (char     *)((char *)block_buffer    + define::bufferBlockSize        * kBlockBufferCnt);
     zero_8_byte     = (uint64_t *)((char *)zero_byte       + sizeof(char));
     range_buffer    = (char     *)((char *)zero_8_byte     + sizeof(uint64_t));
-    assert(range_buffer - buffer < define::kPerCoroRdmaBuf);
+    assert(range_buffer < buffer + define::kPerCoroRdmaBuf);
     // init counters
     cas_buffer_cur      = 0;
     lock_buffer_cur     = 0;
