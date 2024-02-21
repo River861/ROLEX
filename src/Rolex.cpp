@@ -211,7 +211,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
 #if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
     hopscotch_fetch_node(insert_leaf_addr, hash_idx, leaf, sink, read_entry_num, false);
 #else
-\    fetch_node(insert_leaf_addr, leaf, sink, false);
+    fetch_node(insert_leaf_addr, leaf, sink, false);
 #endif
     if (leaf->metadata.synonym_ptr != GlobalAddress::Null()) {
       leaf_read_syn[dsm->getMyThreadID()] ++;
@@ -349,7 +349,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   // printf("FUCK 7\n");
-  // write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
+  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
