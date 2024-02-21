@@ -473,12 +473,12 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
   }
 
   for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
-// #ifdef METADATA_REPLICATION
-//     MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffers[i]);
-//     LeafVersionManager::encode_node_versions(intermediate_leaf_buffers[i], encoded_leaf_buffers[i]);
-// #else
-//     VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffers[i]);
-// #endif
+#ifdef METADATA_REPLICATION
+    MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffers[i]);
+    LeafVersionManager::encode_node_versions(intermediate_leaf_buffers[i], encoded_leaf_buffers[i]);
+#else
+    // VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffers[i]);
+#endif
     RdmaOpRegion r;
     r.source = (uint64_t)encoded_leaf_buffers[i];
     r.dest = leaf_addrs[i].to_uint64();
