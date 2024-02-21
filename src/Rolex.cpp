@@ -99,7 +99,7 @@ void RolexIndex::lock_node(const GlobalAddress &node_addr, uint64_t* lock_buffer
 
   // lock function
   auto acquire_lock = [=](const GlobalAddress &node_addr) {
-    return dsm->cas_mask_sync(node_addr + lock_offset, 0UL, ~0UL, lock_buffer, 1ULL << 63, ~0ULL, sink);
+    return dsm->cas_mask_sync(node_addr + lock_offset, 0ULL, ~0ULL, lock_buffer, 1ULL << 63, ~0ULL, sink);
   };
   int cnt = 0;
 re_acquire:
@@ -179,7 +179,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   // lock node
   auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
   // printf("FUCK 2\n");
-  // lock_node(insert_leaf_addr, lock_buffer, sink);
+  lock_node(insert_leaf_addr, lock_buffer, sink);
 
   int read_entry_num = define::leafSpanSize, read_synonym_entry_num = define::leafSpanSize;
 #if (defined HOPSCOTCH_LEAF_NODE && defined VACANCY_AWARE_LOCK)
@@ -349,7 +349,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   // printf("FUCK 7\n");
-  // write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
+  write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;

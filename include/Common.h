@@ -167,7 +167,7 @@ constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZ
 #else
 constexpr uint32_t transLeafSize     = cachelineSize + ADD_CACHELINE_VERSION_SIZE(leafMetadataSize + leafEntrySize * leafSpanSize - cachelineSize, versionSize);
 #endif
-constexpr uint32_t allocationLockSize = 16UL;  // round up lock_addr
+constexpr uint32_t allocationLockSize = 64UL;  // 16 round up lock_addr
 constexpr uint32_t allocationLeafSize = transLeafSize + allocationLockSize;  // remain space for the lock
 
 // Rdma Buffer
