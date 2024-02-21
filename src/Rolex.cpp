@@ -409,6 +409,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
 #endif
   }
 
+  std::cout << "FUCK!" << std::endl;
 re_fetch:
   rs.clear();
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
@@ -419,9 +420,7 @@ re_fetch:
     r.is_on_chip = false;
     rs.emplace_back(r);
   }
-  std::cout << "FUCK 1" << std::endl;
   dsm->read_batches_sync(rs, sink);
-  std::cout << "FUCK 2" << std::endl;
   // consistency check
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
 #ifdef METADATA_REPLICATION
