@@ -72,6 +72,12 @@ inline void VersionManager<NODE, ENTRY>::encode_node_versions(char *input_buffer
   ++ node_version;
   metadata.h_version.node_version = node_version;
   for (auto& entry : entries) entry.h_version.node_version = node_version;
+  assert(metadata.h_version.entry_version == 0);
+  assert(metadata.h_version.node_version == node_version);
+  for (int i = 0; i < define::leafSpanSize; ++ i) {
+    assert(entries[i].h_version.entry_version == 0);
+    assert(entries[i].h_version.node_version == node_version);
+  } 
 
   // generate cacheline versions
   memcpy(output_buffer, input_buffer, FIRST_OFFSET);
