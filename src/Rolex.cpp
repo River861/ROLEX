@@ -364,6 +364,7 @@ GlobalAddress RolexIndex::insert_into_syn_leaf_locally(const Key &k, Value v, Le
   if (!syn_leaf) {  // allocate a new synonym leaf
     syn_leaf_addr = dsm->alloc(define::allocationLeafSize);
     auto syn_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    memset(syn_buffer, 0, define::transLeafSize);
     syn_leaf = new (syn_buffer) LeafNode;
     syn_leaf->records[0].update(k, v);
   }
@@ -452,6 +453,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
   std::vector<RdmaOpRegion> rs;
   for (int i = 0; i < (int)leaf_addrs.size(); ++ i) {
     auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    memset(encoded_leaf_buffer, 0, define::transLeafSize);
 #ifdef METADATA_REPLICATION
     auto intermediate_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     MetadataManager::encode_node_metadata((char*)leaves[i], intermediate_leaf_buffer);
