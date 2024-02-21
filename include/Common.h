@@ -168,7 +168,7 @@ constexpr int decodedLeafSize        = (leafMetadataSize + leafEntrySize * neigh
 constexpr int decodedLeafSize        = leafMetadataSize + leafEntrySize * leafSpanSize;
 #endif
 constexpr uint32_t transLeafSize     = (decodedLeafSize <= cachelineSize) ? decodedLeafSize : (cachelineSize + ADD_CACHELINE_VERSION_SIZE(decodedLeafSize - cachelineSize, versionSize));
-constexpr uint32_t allocationLockSize = 64UL;  // 16 round up lock_addr [BUG]
+constexpr uint32_t allocationLockSize = 16UL;  // 16 round up lock_addr
 constexpr uint32_t allocationLeafSize = transLeafSize + allocationLockSize;  // remain space for the lock
 
 // Rdma Buffer

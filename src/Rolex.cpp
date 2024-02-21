@@ -462,7 +462,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
 #endif
 
   for (const auto& leaf_addr : leaf_addrs) {
-    auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
+    auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
     encoded_leaf_buffers.emplace_back(encoded_leaf_buffer);
     memset(encoded_leaf_buffer, 0, define::allocationLeafSize);
 #ifdef METADATA_REPLICATION
