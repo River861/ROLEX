@@ -290,6 +290,7 @@ void DSM::read_batches_sync(const std::vector<RdmaOpRegion>& rs, CoroPull* sink)
 
   if (sink == nullptr) {
     ibv_wc wc;
+    assert((int)each_rs.size() == 1);
     pollWithCQ(iCon->cq, (int)each_rs.size(), &wc);
   }
 }
