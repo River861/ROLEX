@@ -350,7 +350,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   // printf("FUCK 7\n");
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
-  unlock_node(insert_leaf_addr, lock_buffer, sink);
+  // unlock_node(insert_leaf_addr, lock_buffer, sink);
 #endif
   }
   range_cnt[dsm->getMyThreadID()][read_leaf_cnt] ++;
@@ -466,21 +466,21 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
 #else
     // VerMng::encode_node_versions((char*)leaves[i], encoded_leaf_buffer);
 #endif
-    RdmaOpRegion r;
-    r.source = (uint64_t)encoded_leaf_buffer;
-    r.dest = leaf_addrs[i].to_uint64();
-    r.size = define::transLeafSize;
-    r.is_on_chip = false;
-    rs.emplace_back(r);
+    // RdmaOpRegion r;
+    // r.source = (uint64_t)encoded_leaf_buffer;
+    // r.dest = leaf_addrs[i].to_uint64();
+    // r.size = define::transLeafSize;
+    // r.is_on_chip = false;
+    // rs.emplace_back(r);
   }
   // unlock
-  // RdmaOpRegion r;
-  // auto lock_offset = get_lock_info();
-  // r.source = (uint64_t)lock_buffer;
-  // r.dest = (locked_leaf_addr + lock_offset).to_uint64();
-  // r.size = sizeof(uint64_t);
-  // r.is_on_chip = false;
-  // rs.emplace_back(r);
+  RdmaOpRegion r;
+  auto lock_offset = get_lock_info();
+  r.source = (uint64_t)lock_buffer;
+  r.dest = (locked_leaf_addr + lock_offset).to_uint64();
+  r.size = sizeof(uint64_t);
+  r.is_on_chip = false;
+  rs.emplace_back(r);
   dsm->write_batches_sync(rs, sink);
   return;
 }
