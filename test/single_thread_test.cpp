@@ -41,10 +41,11 @@ int main() {
 
   // test update
   // for (uint64_t i = TEST_NUM; i >= 1; --i) {
-  //   // printf("updating %lu...\n", i);
-  //   rolex_index->update(int2key(i), i * 3);
-  // }
-  // printf("update passed.\n");
+  for (uint64_t i = 1; i <= TEST_NUM; ++i) {
+    // printf("updating %lu...\n", i);
+    rolex_index->update(int2key(i), i * 3);
+  }
+  printf("update passed.\n");
 
   // test search
   for (uint64_t i = 1; i <= TEST_NUM; ++i) {
@@ -54,8 +55,8 @@ int main() {
     auto res = rolex_index->search(int2key(i), v);
     std::cout << "search result:  " << (bool)res << " k: " << i << " v: " << v << " ans: " << i * 3 << std::endl;
     // assert(!res || v == i * 3);
-    // assert(res && v == i * 3);
-    assert(res && v == i * 2);
+    assert(res && v == i * 3);
+    // assert(res && v == i * 2);
   }
   printf("search passed.\n");
 
