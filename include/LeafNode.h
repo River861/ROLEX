@@ -38,7 +38,7 @@ public:
   union {
   Value value;  // !!!NOTE: with ENABLE_VAR_LEN_KV turned on, the value in this field will be casted into a DataPointer
   uint8_t _padding[define::inlineValLen];
-  };
+  } __attribute__((packed));
 
 public:
 #ifdef HOPSCOTCH_LEAF_NODE
