@@ -47,7 +47,7 @@ public:
     this->buffer    = buffer;
     cas_buffer      = (uint64_t *)buffer;
     lock_buffer     = (uint64_t *)((char *)cas_buffer      + sizeof(uint64_t) * kCasBufferCnt);
-    leaf_buffer     = (char     *)((char *)lock_buffer     + sizeof(uint64_t) * kLockBufferCnt);
+    leaf_buffer     = (char     *)((char *)lock_buffer     + define::allocationLockSize     * kLockBufferCnt);
     segment_buffer  = (char     *)((char *)leaf_buffer     + define::allocationLeafSize     * kLeafBufferCnt);
     metadata_buffer = (char     *)((char *)segment_buffer  + define::allocationLeafSize     * kSegmentBufferCnt);
     entry_buffer    = (char     *)((char *)metadata_buffer + define::bufferMetadataSize     * kHeaderBufferCnt);
