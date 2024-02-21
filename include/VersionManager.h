@@ -86,7 +86,7 @@ inline void VersionManager<NODE, ENTRY>::encode_node_versions(char *input_buffer
     }
     memcpy(output_buffer + j, &obj_version, sizeof(PackedVersion));
     j += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, sizeof(NODE) - i));
+    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, sizeof(NODE) - i + sizeof(PackedVersion)));
   }
 }
 
