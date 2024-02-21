@@ -432,8 +432,8 @@ re_fetch:
     MetadataManager::decode_node_metadata(intermediate_buffers[i], (char*)leaves[i]);
 #else
     if (!(VerMng::decode_node_versions(raw_buffers[i], (char*)leaves[i]))) {
-      read_leaf_retry[dsm->getMyThreadID()] ++;
-      goto re_fetch;
+      // read_leaf_retry[dsm->getMyThreadID()] ++;
+      // goto re_fetch;
     }
 #endif
   }
