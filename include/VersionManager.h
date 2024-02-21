@@ -40,6 +40,9 @@ inline bool VersionManager<NODE, ENTRY>::decode_node_versions(char *input_buffer
     auto cacheline_version = *(PackedVersion *)(input_buffer + i);
     i += sizeof(PackedVersion);
     memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, sizeof(NODE) - j));
+    if (j == sizeof(NODE)) {
+      break;
+    }
     PackedVersion obj_version;
     if (j < STRUCT_OFFSET(NODE, records)) {
       obj_version = metadata.h_version;
