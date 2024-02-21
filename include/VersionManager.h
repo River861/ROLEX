@@ -39,10 +39,7 @@ inline bool VersionManager<NODE, ENTRY>::decode_node_versions(char *input_buffer
   for (uint64_t i = FIRST_OFFSET, j = FIRST_OFFSET; j < sizeof(NODE); i += define::blockSize, j += define::blockSize) {
     auto cacheline_version = *(PackedVersion *)(input_buffer + i);
     i += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, sizeof(NODE) - j));
-    if (j == sizeof(NODE)) {
-      break;
-    }
+    memcpy(output_buffer + j, input_buffer + i, std::min((int)define::blockSize, (int)sizeof(NODE) - (int)j));
     PackedVersion obj_version;
     if (j < STRUCT_OFFSET(NODE, records)) {
       obj_version = metadata.h_version;
@@ -89,7 +86,7 @@ inline void VersionManager<NODE, ENTRY>::encode_node_versions(char *input_buffer
     }
     memcpy(output_buffer + j, &obj_version, sizeof(PackedVersion));
     j += sizeof(PackedVersion);
-    memcpy(output_buffer + j, input_buffer + i, std::min((size_t)define::blockSize, sizeof(NODE) - i));
+    memcpy(output_buffer + j, input_buffer + i, std::min((int)define::blockSize, (int)sizeof(NODE) - (int)i));
   }
 }
 
