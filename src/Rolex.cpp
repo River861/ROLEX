@@ -347,7 +347,7 @@ void RolexIndex::insert(const Key &k, Value v, CoroPull* sink) {
   leaf_addrs.clear();
   std::vector<LeafNode*> leaves;
   if (write_leaf) leaf_addrs.emplace_back(insert_leaf_addr), leaves.emplace_back(leaf);
-  if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
+  // if (write_syn_leaf) leaf_addrs.emplace_back(syn_leaf_addrs[insert_leaf_addr]), leaves.emplace_back(syn_leaf);
   // printf("FUCK 7\n");
   write_nodes_and_unlock(leaf_addrs, leaves, insert_leaf_addr, lock_buffer, sink);
   // unlock_node(insert_leaf_addr, lock_buffer, sink);
@@ -462,7 +462,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
 #endif
 
   for (const auto& leaf_addr : leaf_addrs) {
-    auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_segment_buffer();
+    auto encoded_leaf_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     encoded_leaf_buffers.emplace_back(encoded_leaf_buffer);
     memset(encoded_leaf_buffer, 0, define::allocationLeafSize);
 #ifdef METADATA_REPLICATION
