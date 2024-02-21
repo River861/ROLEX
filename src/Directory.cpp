@@ -16,7 +16,8 @@ Directory::Directory(DirectoryConnection *dCon, RemoteConnection *remoteInfo,
 
   { // chunck alloctor
     GlobalAddress dsm_start;
-    uint64_t per_directory_dsm_size = ((int)dCon->dsmSize - (int)define::synRegionOffset) / NR_DIRECTORY;
+    assert(dCon->dsmSize > define::synRegionOffset);
+    uint64_t per_directory_dsm_size = (dCon->dsmSize - define::synRegionOffset) / NR_DIRECTORY;
     dsm_start.nodeID = nodeID;
     dsm_start.offset = define::synRegionOffset + per_directory_dsm_size * dirID;
     chunckAlloc = new GlobalAllocator(dsm_start, per_directory_dsm_size);
