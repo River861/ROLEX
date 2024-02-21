@@ -1,7 +1,6 @@
 #include "Rdma.h"
 
 #include<vector>
-#include<iostream>
 
 int pollWithCQ(ibv_cq *cq, int pollNumber, struct ibv_wc *wc) {
   int count = 0;
@@ -10,7 +9,6 @@ int pollWithCQ(ibv_cq *cq, int pollNumber, struct ibv_wc *wc) {
 
     int new_count = ibv_poll_cq(cq, 1, wc);
     count += new_count;
-    std::cout << "FUCK: " << count << std::endl;
 
   } while (count < pollNumber);
 
