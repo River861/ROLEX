@@ -21,7 +21,7 @@
 // #define HOPSCOTCH_LEAF_NODE
 // #define VACANCY_AWARE_LOCK
 // #define METADATA_REPLICATION
-// #define SPECULATIVE_POINT_QUERY
+// #define SPECULATIVE_READ
 // #define ENABLE_VAR_LEN_KV
 
 // Environment Config

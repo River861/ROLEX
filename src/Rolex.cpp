@@ -52,7 +52,7 @@ RolexIndex::RolexIndex(DSM *dsm, std::vector<Key> &load_keys, uint16_t rolex_id)
   clear_debug_info();
   // Cache
   rolex_cache = new RolexCache(dsm, load_keys);
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
   idx_cache = new IdxCache(define::kHotspotBufSize, dsm);
 #endif
   // RDWC
@@ -577,7 +577,7 @@ void RolexIndex::update(const Key &k, Value v, CoroPull* sink) {
   auto lock_buffer = (dsm->get_rbuf(sink)).get_lock_buffer();
   lock_node(lock_leaf_addr, lock_buffer, sink);
   LeafNode* leaf;
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
   want_speculative_read[dsm->getMyThreadID()] ++;
   auto old_addr = leaf_addr;
 #ifdef HOPSCOTCH_LEAF_NODE
@@ -644,7 +644,7 @@ read_another:
   }
 
   // 4. Writing and unlock
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
   idx_cache->add_to_cache(leaf_addr, (leaf_addr == lock_leaf_addr) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 update_entry:
   leaf->records[kv_idx].update(k, v);
@@ -736,7 +736,7 @@ std::tuple<bool, GlobalAddress, GlobalAddress, int> RolexIndex::_search(const Ke
   // 1. Read predict leaves and the synonmy leaves
   auto [l, r] = rolex_cache->search_from_cache(k);
 
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
   want_speculative_read[dsm->getMyThreadID()] ++;
   for (int i = l; i <= r; ++ i) {
     LeafNode* leaf;
@@ -816,7 +816,7 @@ re_read:
         hop_bitmap |= 1ULL << (define::neighborSize - j - 1);
         if (e.key == k) {  // optimization: if the target key is found, consistency check can be stopped
           v = e.value;
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
           idx_cache->add_to_cache(leaf_addrs[i], (leaf_addrs[i] == locked_leaf_addrs[i]) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 #endif
           return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
@@ -832,7 +832,7 @@ re_read:
       const auto& e = leaves[i]->records[kv_idx];
       if (e.key == k) {
         v = e.value;
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
         idx_cache->add_to_cache(leaf_addrs[i], (leaf_addrs[i] == locked_leaf_addrs[i]) ? kv_idx : (define::leafSpanSize + kv_idx), k);
 #endif
         return std::make_tuple(true, leaf_addrs[i], locked_leaf_addrs[i], read_leaf_cnt);
@@ -1426,7 +1426,7 @@ void RolexIndex::entry_write_and_unlock(LeafNode* leaf, const int idx, const Glo
 #endif
 
 
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
 bool RolexIndex::speculative_read(GlobalAddress& leaf_addr, std::pair<int, int> range, const Key &k, Value &v, LeafNode*& leaf,
                                   int& speculative_idx, int& read_leaf_cnt, CoroPull* sink) {
   auto& syn_leaf_addrs = coro_syn_leaf_addrs[sink ? sink->get() : 0];
@@ -1557,7 +1557,7 @@ void RolexIndex::coro_worker(CoroPull &sink, RequstGen *gen, WorkFunc work_func)
 
 void RolexIndex::statistics() {
   rolex_cache->statistics();
-#ifdef SPECULATIVE_POINT_QUERY
+#ifdef SPECULATIVE_READ
   idx_cache->statistics();
 #endif
 }
