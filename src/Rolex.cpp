@@ -406,6 +406,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
 #ifdef METADATA_REPLICATION
     auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     intermediate_buffers.emplace_back(intermediate_buffer);
+    memset(intermediate_buffers, 0, define::allocationLeafSize);
 #endif
   }
 
@@ -414,6 +415,7 @@ re_fetch:
   for (int i = 0; i < leaf_addrs.size(); ++ i) {
     RdmaOpRegion r;
     r.source     = (uint64_t)raw_buffers[i];
+    memset(raw_buffers[i], 0, define::allocationLeafSize);
     r.dest       = leaf_addrs[i].to_uint64();
     r.size       = define::transLeafSize;
     r.is_on_chip = false;
