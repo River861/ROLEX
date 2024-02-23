@@ -408,7 +408,7 @@ void RolexIndex::fetch_nodes(const std::vector<GlobalAddress>& leaf_addrs, std::
 #ifdef METADATA_REPLICATION
     auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     intermediate_buffers.emplace_back(intermediate_buffer);
-    memset(intermediate_buffers, 0, define::allocationLeafSize);
+    memset(intermediate_buffer, 0, define::allocationLeafSize);
 #endif
   }
 
@@ -464,7 +464,7 @@ void RolexIndex::write_nodes_and_unlock(const std::vector<GlobalAddress>& leaf_a
 #ifdef METADATA_REPLICATION
     auto intermediate_buffer = (dsm->get_rbuf(sink)).get_leaf_buffer();
     intermediate_leaf_buffers.emplace_back(intermediate_buffer);
-    memset(intermediate_buffers, 0, define::allocationLeafSize);
+    memset(intermediate_buffer, 0, define::allocationLeafSize);
 #endif
   }
 
