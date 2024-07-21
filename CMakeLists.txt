@@ -62,7 +62,7 @@ endif()
 
 #Tree Options
 option (HOPSCOTCH_LEAF_NODE "+ Hopscotch leaf node" OFF)
-option (VACANCY_AWARE_LOCK "+ Information-embedded lock" ON)
+option (VACANCY_AWARE_LOCK "+ Information-embedded lock" OFF)
 option (METADATA_REPLICATION "+ Metadata replication" OFF)
 option (SPECULATIVE_POINT_QUERY "+ Speculative point query" OFF)
 # Variable-length KV
